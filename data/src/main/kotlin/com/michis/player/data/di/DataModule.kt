@@ -11,13 +11,16 @@ import com.michis.player.data.local.dao.AudiobookDao
 import com.michis.player.data.local.dao.AudioFileDao
 import com.michis.player.data.local.MIGRATION_1_2
 import com.michis.player.data.local.dao.LibraryRootDao
+import com.michis.player.data.local.dao.PlaybackProgressDao
 import com.michis.player.data.repository.DataStoreSettingsRepository
 import com.michis.player.data.repository.LocalAudiobookRepository
 import com.michis.player.data.repository.LocalLibraryRootRepository
+import com.michis.player.data.repository.RoomPlaybackDataRepository
 import com.michis.player.domain.repository.AudiobookRepository
 import com.michis.player.domain.repository.LibraryRootRepository
 import com.michis.player.domain.repository.SettingsRepository
 import com.michis.player.domain.repository.LibraryScanner
+import com.michis.player.domain.repository.PlaybackDataRepository
 import com.michis.player.data.scanner.SafLibraryScanner
 import com.michis.player.domain.usecase.AddLibraryRootUseCase
 import com.michis.player.domain.usecase.ScanLibraryUseCase
@@ -36,6 +39,7 @@ abstract class RepositoryModule {
     @Binds abstract fun bindLibraryRootRepository(repository: LocalLibraryRootRepository): LibraryRootRepository
     @Binds abstract fun bindSettingsRepository(repository: DataStoreSettingsRepository): SettingsRepository
     @Binds abstract fun bindLibraryScanner(scanner: SafLibraryScanner): LibraryScanner
+    @Binds abstract fun bindPlaybackDataRepository(repository: RoomPlaybackDataRepository): PlaybackDataRepository
 }
 
 @Module
@@ -47,6 +51,7 @@ object DatabaseModule {
     @Provides fun provideAudiobookDao(database: MichisPlayerDatabase): AudiobookDao = database.audiobookDao()
     @Provides fun provideLibraryRootDao(database: MichisPlayerDatabase): LibraryRootDao = database.libraryRootDao()
     @Provides fun provideAudioFileDao(database: MichisPlayerDatabase): AudioFileDao = database.audioFileDao()
+    @Provides fun providePlaybackProgressDao(database: MichisPlayerDatabase): PlaybackProgressDao = database.playbackProgressDao()
 
     @Provides @Singleton fun provideDataStore(@ApplicationContext context: Context): DataStore<Preferences> =
         PreferenceDataStoreFactory.create { context.preferencesDataStoreFile("global-settings.preferences_pb") }

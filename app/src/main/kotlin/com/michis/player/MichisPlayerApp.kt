@@ -2,6 +2,7 @@ package com.michis.player
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -20,10 +21,14 @@ import com.michis.player.feature.bookdetails.BookDetailsScreen
 import com.michis.player.feature.bookmarks.BookmarksScreen
 import com.michis.player.feature.library.LibraryRoute
 import com.michis.player.feature.settings.SettingsScreen
+import com.michis.player.feature.player.MiniPlayerRoute
+import com.michis.player.feature.player.PlayerRoute
 private const val LIBRARY_ROUTE = "library"
 private const val BOOKMARKS_ROUTE = "bookmarks"
 private const val SETTINGS_ROUTE = "settings"
 private const val BOOK_DETAILS_ROUTE = "book/{bookId}"
+private const val PLAYER_ROUTE = "player"
+private const val PLAYER_BOOK_ROUTE = "player/{bookId}"
 
 private data class TopLevelDestination(val label: String, val route: String)
 
@@ -39,15 +44,21 @@ fun MichisPlayerApp() {
 
     Scaffold(
         bottomBar = {
-            NavigationBar {
-                destinations.forEach { destination ->
-                    val selected = entry?.destination?.route == destination.route
-                    NavigationBarItem(
-                        selected = selected,
-                        onClick = { navController.navigate(destination.route) { launchSingleTop = true; popUpTo(LIBRARY_ROUTE) { saveState = true }; restoreState = true } },
-                        icon = { Text(destination.label.take(1)) },
-                        label = { Text(destination.label) },
-                    )
+            Column {
+                val currentRoute = entry?.destination?.route
+                if (currentRoute != PLAYER_ROUTE && currentRoute != PLAYER_BOOK_ROUTE) {
+                    MiniPlayerRoute(onOpenPlayer = { navController.navigate(PLAYER_ROUTE) })
+                }
+                NavigationBar {
+                    destinations.forEach { destination ->
+                        val selected = currentRoute == destination.route
+                        NavigationBarItem(
+                            selected = selected,
+                            onClick = { navController.navigate(destination.route) { launchSingleTop = true; popUpTo(LIBRARY_ROUTE) { saveState = true }; restoreState = true } },
+                            icon = { Text(destination.label.take(1)) },
+                            label = { Text(destination.label) },
+                        )
+                    }
                 }
             }
         },
@@ -60,8 +71,14 @@ fun MichisPlayerApp() {
                 route = BOOK_DETAILS_ROUTE,
                 arguments = listOf(navArgument("bookId") { type = NavType.StringType }),
             ) { backStackEntry ->
-                BookDetailsScreen(bookId = backStackEntry.arguments?.getString("bookId").orEmpty(), onPlay = {})
+                val bookId = backStackEntry.arguments?.getString("bookId").orEmpty()
+                BookDetailsScreen(bookId = bookId, onPlay = { navController.navigate("player/${Uri.encode(bookId)}") })
             }
+            composable(PLAYER_ROUTE) { PlayerRoute(bookId = null) }
+            composable(
+                route = PLAYER_BOOK_ROUTE,
+                arguments = listOf(navArgument("bookId") { type = NavType.StringType }),
+            ) { backStackEntry -> PlayerRoute(bookId = backStackEntry.arguments?.getString("bookId")) }
         }
     }
 }

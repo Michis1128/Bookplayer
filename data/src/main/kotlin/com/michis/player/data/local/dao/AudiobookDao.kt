@@ -14,6 +14,9 @@ interface AudiobookDao {
     @Query("SELECT * FROM audiobooks WHERE id = :id")
     fun observeById(id: String): Flow<AudiobookEntity?>
 
+    @Query("SELECT * FROM audiobooks WHERE id = :id")
+    suspend fun findById(id: String): AudiobookEntity?
+
     @Upsert suspend fun upsert(audiobook: AudiobookEntity)
 
     @Query("SELECT * FROM audiobooks WHERE rootId = :rootId")
@@ -27,4 +30,7 @@ interface AudiobookDao {
 
     @Query("UPDATE audiobooks SET availability = 'UNAVAILABLE', updatedAt = :updatedAt WHERE rootId = :rootId")
     suspend fun markRootUnavailable(rootId: String, updatedAt: Long)
+
+    @Query("UPDATE audiobooks SET status = :status, updatedAt = :updatedAt WHERE id = :bookId")
+    suspend fun updateStatus(bookId: String, status: String, updatedAt: Long)
 }

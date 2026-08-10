@@ -1,0 +1,13 @@
+package com.michis.player.data.local.dao
+
+import androidx.room.Dao
+import androidx.room.Query
+import androidx.room.Upsert
+import com.michis.player.data.local.entity.LibraryRootEntity
+import kotlinx.coroutines.flow.Flow
+
+@Dao
+interface LibraryRootDao {
+    @Query("SELECT * FROM library_roots ORDER BY displayName COLLATE NOCASE") fun observeAll(): Flow<List<LibraryRootEntity>>
+    @Upsert suspend fun upsert(root: LibraryRootEntity)
+}

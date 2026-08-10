@@ -15,4 +15,16 @@ interface AudiobookDao {
     fun observeById(id: String): Flow<AudiobookEntity?>
 
     @Upsert suspend fun upsert(audiobook: AudiobookEntity)
+
+    @Query("SELECT * FROM audiobooks WHERE rootId = :rootId")
+    suspend fun findByRoot(rootId: String): List<AudiobookEntity>
+
+    @Query("SELECT * FROM audiobooks WHERE sourceUri = :sourceUri LIMIT 1")
+    suspend fun findBySourceUri(sourceUri: String): AudiobookEntity?
+
+    @Query("UPDATE audiobooks SET availability = 'UNAVAILABLE', updatedAt = :updatedAt WHERE rootId = :rootId AND id NOT IN (:availableBookIds)")
+    suspend fun markMissingUnavailable(rootId: String, availableBookIds: Set<String>, updatedAt: Long)
+
+    @Query("UPDATE audiobooks SET availability = 'UNAVAILABLE', updatedAt = :updatedAt WHERE rootId = :rootId")
+    suspend fun markRootUnavailable(rootId: String, updatedAt: Long)
 }

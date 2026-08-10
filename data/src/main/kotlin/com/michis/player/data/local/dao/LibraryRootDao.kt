@@ -10,4 +10,5 @@ import kotlinx.coroutines.flow.Flow
 interface LibraryRootDao {
     @Query("SELECT * FROM library_roots ORDER BY displayName COLLATE NOCASE") fun observeAll(): Flow<List<LibraryRootEntity>>
     @Upsert suspend fun upsert(root: LibraryRootEntity)
+    @Query("DELETE FROM library_roots WHERE id = :id") suspend fun delete(id: String)
 }

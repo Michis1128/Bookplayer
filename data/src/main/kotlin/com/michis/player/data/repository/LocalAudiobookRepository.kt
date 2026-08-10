@@ -13,6 +13,10 @@ import javax.inject.Inject
 class LocalAudiobookRepository @Inject constructor(private val dao: AudiobookDao) : AudiobookRepository {
     override fun observeAudiobooks(): Flow<List<Audiobook>> = dao.observeAll().map { books -> books.map(AudiobookEntity::asDomain) }
     override fun observeAudiobook(id: String): Flow<Audiobook?> = dao.observeById(id).map { it?.asDomain() }
+    override suspend fun markMissingBooksUnavailable(rootId: String, availableBookIds: Set<String>) {
+        if (availableBookIds.isEmpty()) dao.markRootUnavailable(rootId, System.currentTimeMillis())
+        else dao.markMissingUnavailable(rootId, availableBookIds, System.currentTimeMillis())
+    }
 }
 
 private fun AudiobookEntity.asDomain() = Audiobook(

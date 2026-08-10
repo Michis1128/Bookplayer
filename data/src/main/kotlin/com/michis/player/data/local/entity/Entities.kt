@@ -8,7 +8,7 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "library_roots")
 data class LibraryRootEntity(@PrimaryKey val id: String, val treeUri: String, val displayName: String)
 
-@Entity(tableName = "audiobooks")
+@Entity(tableName = "audiobooks", indices = [Index("rootId"), Index(value = ["sourceUri"], unique = true)])
 data class AudiobookEntity(
     @PrimaryKey val id: String,
     val title: String,
@@ -19,6 +19,8 @@ data class AudiobookEntity(
     val availability: String,
     val createdAt: Long,
     val updatedAt: Long,
+    val rootId: String?,
+    val sourceUri: String?,
 )
 
 @Entity(
@@ -37,6 +39,11 @@ data class AudioFileEntity(
     val sizeBytes: Long?,
     val lastModified: Long?,
     val playable: Boolean,
+    val title: String?,
+    val author: String?,
+    val album: String?,
+    val discNumber: Int?,
+    val trackNumber: Int?,
 )
 
 @Entity(

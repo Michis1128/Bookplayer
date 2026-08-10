@@ -13,14 +13,17 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
+import android.net.Uri
+import com.michis.player.feature.bookdetails.BookDetailsScreen
 import com.michis.player.feature.bookmarks.BookmarksScreen
-import com.michis.player.feature.library.LibraryScreen
-import com.michis.player.feature.library.LibraryUiEvent
-import com.michis.player.feature.library.LibraryUiState
+import com.michis.player.feature.library.LibraryRoute
 import com.michis.player.feature.settings.SettingsScreen
 private const val LIBRARY_ROUTE = "library"
 private const val BOOKMARKS_ROUTE = "bookmarks"
 private const val SETTINGS_ROUTE = "settings"
+private const val BOOK_DETAILS_ROUTE = "book/{bookId}"
 
 private data class TopLevelDestination(val label: String, val route: String)
 
@@ -50,9 +53,15 @@ fun MichisPlayerApp() {
         },
     ) { padding ->
         NavHost(navController, startDestination = LIBRARY_ROUTE, modifier = Modifier.fillMaxSize().padding(padding)) {
-            composable(LIBRARY_ROUTE) { LibraryScreen(LibraryUiState()) { event -> if (event is LibraryUiEvent.SelectLibrary) Unit } }
+            composable(LIBRARY_ROUTE) { LibraryRoute(onOpenBook = { id -> navController.navigate("book/${Uri.encode(id)}") }) }
             composable(BOOKMARKS_ROUTE) { BookmarksScreen() }
             composable(SETTINGS_ROUTE) { SettingsScreen() }
+            composable(
+                route = BOOK_DETAILS_ROUTE,
+                arguments = listOf(navArgument("bookId") { type = NavType.StringType }),
+            ) { backStackEntry ->
+                BookDetailsScreen(bookId = backStackEntry.arguments?.getString("bookId").orEmpty(), onPlay = {})
+            }
         }
     }
 }

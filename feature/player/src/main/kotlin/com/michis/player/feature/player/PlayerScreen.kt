@@ -190,14 +190,23 @@ private fun BookCover(state: PlayerUiState, modifier: Modifier) {
 
 @Composable
 private fun BookInformation(state: PlayerUiState, modifier: Modifier = Modifier) {
+    val chapter = state.chapterAt(state.currentPositionMs)?.chapter
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
-            state.currentBook?.title ?: "Ningún audiolibro seleccionado",
+            chapter?.title ?: state.currentBook?.title ?: "Ningún audiolibro seleccionado",
             style = MaterialTheme.typography.headlineSmall,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
-        Text(state.currentBook?.author ?: "Autor desconocido", style = MaterialTheme.typography.bodyLarge)
+        Text(
+            if (chapter != null) state.currentBook?.title.orEmpty() else state.currentBook?.author ?: "Autor desconocido",
+            style = MaterialTheme.typography.bodyLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (chapter != null && !state.currentBook?.author.isNullOrBlank()) {
+            Text(state.currentBook.author.orEmpty(), style = MaterialTheme.typography.bodyMedium)
+        }
         Text(
             state.currentFile?.name ?: "",
             modifier = Modifier.padding(top = 4.dp),
@@ -215,18 +224,23 @@ private fun Timeline(
     onSeekFinished: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val chapterRange = state.chapterAt(state.currentPositionMs)
+    val rangeStartMs = chapterRange?.startMs ?: 0L
+    val rangeEndMs = chapterRange?.endMs ?: state.durationMs
+    val rangeDurationMs = (rangeEndMs - rangeStartMs).coerceAtLeast(0L)
+    val relativePositionMs = (displayedPositionMs - rangeStartMs).coerceIn(0L, rangeDurationMs)
     Column(modifier.fillMaxWidth()) {
         Slider(
-            value = displayedPositionMs.toFloat(),
-            onValueChange = { onSeekChange(it.toLong()) },
+            value = relativePositionMs.toFloat(),
+            onValueChange = { onSeekChange(rangeStartMs + it.toLong()) },
             onValueChangeFinished = onSeekFinished,
-            valueRange = 0f..state.durationMs.coerceAtLeast(1L).toFloat(),
+            valueRange = 0f..rangeDurationMs.coerceAtLeast(1L).toFloat(),
             enabled = state.currentFile != null,
             modifier = Modifier.fillMaxWidth(),
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(formatDuration(displayedPositionMs))
-            Text("−${formatDuration((state.durationMs - displayedPositionMs).coerceAtLeast(0L))}")
+            Text(formatDuration(relativePositionMs))
+            Text("−${formatDuration((rangeDurationMs - relativePositionMs).coerceAtLeast(0L))}")
         }
     }
 }
@@ -318,7 +332,11 @@ private fun PlaybackStatus(state: PlayerUiState, modifier: Modifier = Modifier) 
 
 @Composable
 private fun MiniPlayer(state: PlayerUiState, onEvent: (PlayerUiEvent) -> Unit, onOpen: () -> Unit) {
-    val progress = if (state.durationMs > 0) state.currentPositionMs.toFloat() / state.durationMs else 0f
+    val chapterRange = state.chapterAt(state.currentPositionMs)
+    val startMs = chapterRange?.startMs ?: 0L
+    val endMs = chapterRange?.endMs ?: state.durationMs
+    val durationMs = (endMs - startMs).coerceAtLeast(0L)
+    val progress = if (durationMs > 0) (state.currentPositionMs - startMs).toFloat() / durationMs else 0f
     Column(Modifier.fillMaxWidth().clickable(onClick = onOpen)) {
         LinearProgressIndicator(progress = { progress.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
         Row(
@@ -326,8 +344,18 @@ private fun MiniPlayer(state: PlayerUiState, onEvent: (PlayerUiEvent) -> Unit, o
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
-                Text(state.currentBook?.title.orEmpty(), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(state.currentFile?.name.orEmpty(), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    chapterRange?.chapter?.title ?: state.currentBook?.title.orEmpty(),
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    if (chapterRange != null) state.currentBook?.title.orEmpty() else state.currentFile?.name.orEmpty(),
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
             FilledIconButton(onClick = { onEvent(PlayerUiEvent.TogglePlayback) }) {
                 Icon(
@@ -337,6 +365,22 @@ private fun MiniPlayer(state: PlayerUiState, onEvent: (PlayerUiEvent) -> Unit, o
             }
         }
     }
+}
+
+internal data class ChapterRange(val chapter: Chapter, val startMs: Long, val endMs: Long)
+
+internal fun PlayerUiState.chapterAt(positionMs: Long): ChapterRange? {
+    if (chapters.isEmpty()) return null
+    val index = chapters.indexOfLast { it.startMs <= positionMs }.coerceAtLeast(0)
+    val chapter = chapters[index]
+    val nextStartMs = chapters.getOrNull(index + 1)?.startMs
+    val endMs = chapter.endMs
+        .takeIf { it > chapter.startMs }
+        ?: nextStartMs?.takeIf { it > chapter.startMs }
+        ?: durationMs.takeIf { it > chapter.startMs }
+        ?: return null
+    val boundedEndMs = if (durationMs > chapter.startMs) endMs.coerceAtMost(durationMs) else endMs
+    return ChapterRange(chapter, chapter.startMs.coerceAtLeast(0L), boundedEndMs)
 }
 
 private fun formatDuration(milliseconds: Long): String {

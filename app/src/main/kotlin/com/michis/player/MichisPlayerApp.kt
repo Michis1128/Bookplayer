@@ -15,11 +15,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Book
 import androidx.compose.material.icons.rounded.Bookmark
@@ -42,7 +44,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.michis.player.feature.bookdetails.BookDetailsScreen
 import com.michis.player.feature.bookmarks.BookmarksScreen
 import com.michis.player.feature.library.LibraryRoute
 import com.michis.player.feature.player.MiniPlayerRoute
@@ -53,7 +54,6 @@ import com.michis.player.feature.settings.SettingsScreen
 private const val LIBRARY_ROUTE = "library"
 private const val BOOKMARKS_ROUTE = "bookmarks"
 private const val SETTINGS_ROUTE = "settings"
-private const val BOOK_DETAILS_ROUTE = "book/{bookId}"
 private const val PLAYER_ROUTE = "player"
 private const val PLAYER_BOOK_ROUTE = "player/{bookId}"
 
@@ -82,6 +82,7 @@ private fun PlayerScaffold(isLandscape: Boolean) {
     val currentRoute = entry?.destination?.route
     var panelVisible by rememberSaveable { mutableStateOf(false) }
     var panelBookId by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingBookId by rememberSaveable { mutableStateOf<String?>(null) }
 
     LaunchedEffect(isLandscape, currentRoute) {
         if (isLandscape && (currentRoute == PLAYER_ROUTE || currentRoute == PLAYER_BOOK_ROUTE)) {
@@ -120,11 +121,7 @@ private fun PlayerScaffold(isLandscape: Boolean) {
             Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                 PlayerNavigation(
                     navController = navController,
-                    isLandscape = isLandscape,
-                    onPlayInPanel = { bookId ->
-                        panelBookId = bookId
-                        panelVisible = true
-                    },
+                    onBookSelected = { pendingBookId = it },
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                 )
                 if (isLandscape) {
@@ -157,34 +154,43 @@ private fun PlayerScaffold(isLandscape: Boolean) {
             }
         }
     }
+    pendingBookId?.let { bookId ->
+        AlertDialog(
+            onDismissRequest = { pendingBookId = null },
+            title = { Text("¿Reproducir este audiolibro?") },
+            text = { Text("Se cargará el libro seleccionado en el reproductor.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingBookId = null
+                        if (isLandscape) {
+                            panelBookId = bookId
+                            panelVisible = true
+                        } else {
+                            navController.navigate("player/${Uri.encode(bookId)}")
+                        }
+                    },
+                ) { Text("Reproducir") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingBookId = null }) { Text("Cancelar") }
+            },
+        )
+    }
 }
 
 @Composable
 private fun PlayerNavigation(
     navController: NavHostController,
-    isLandscape: Boolean,
-    onPlayInPanel: (String) -> Unit,
+    onBookSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     NavHost(navController, startDestination = LIBRARY_ROUTE, modifier = modifier) {
         composable(LIBRARY_ROUTE) {
-            LibraryRoute(onOpenBook = { id -> navController.navigate("book/${Uri.encode(id)}") })
+            LibraryRoute(onOpenBook = onBookSelected)
         }
         composable(BOOKMARKS_ROUTE) { BookmarksScreen() }
         composable(SETTINGS_ROUTE) { SettingsScreen() }
-        composable(
-            route = BOOK_DETAILS_ROUTE,
-            arguments = listOf(navArgument("bookId") { type = NavType.StringType }),
-        ) { backStackEntry ->
-            val bookId = backStackEntry.arguments?.getString("bookId").orEmpty()
-            BookDetailsScreen(
-                bookId = bookId,
-                onPlay = {
-                    if (isLandscape) onPlayInPanel(bookId)
-                    else navController.navigate("player/${Uri.encode(bookId)}")
-                },
-            )
-        }
         composable(PLAYER_ROUTE) { PlayerRoute(bookId = null) }
         composable(
             route = PLAYER_BOOK_ROUTE,

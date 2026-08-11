@@ -2,18 +2,24 @@ package com.michis.player.playback.player
 
 import android.content.ComponentName
 import android.content.Context
+import androidx.annotation.OptIn
 import androidx.core.content.ContextCompat
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.extractor.metadata.Chapter as Media3Chapter
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.michis.player.domain.model.AudioFile
 import com.michis.player.domain.model.Audiobook
+import com.michis.player.domain.model.Chapter
 import com.michis.player.domain.model.PlaybackSnapshot
 import com.michis.player.domain.repository.PlaybackController
 import com.michis.player.domain.repository.PlaybackDataRepository
+import com.michis.player.domain.repository.SettingsRepository
 import com.michis.player.playback.EXTRA_BOOK_ID
 import com.michis.player.playback.createMediaItems
 import com.michis.player.playback.service.PlaybackService
@@ -27,6 +33,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -34,10 +41,12 @@ import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
+@OptIn(UnstableApi::class)
 @Singleton
 class Media3PlaybackController @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val repository: PlaybackDataRepository,
+    settingsRepository: SettingsRepository,
 ) : PlaybackController {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val controllerFuture: ListenableFuture<MediaController> = MediaController.Builder(
@@ -48,12 +57,20 @@ class Media3PlaybackController @Inject constructor(
     override val state: StateFlow<PlaybackSnapshot> = mutableState.asStateFlow()
     private var cachedBook: Audiobook? = null
     private var cachedFiles: List<AudioFile> = emptyList()
+    private var preferredSpeed = 1f
 
     init {
+        scope.launch {
+            settingsRepository.settings.collectLatest { settings ->
+                preferredSpeed = settings.playbackSpeed
+                withController { it.setPlaybackSpeed(preferredSpeed) }
+            }
+        }
         controllerFuture.addListener(
             {
                 runCatching { controllerFuture.get() }.onSuccess { controller ->
                     controller.addListener(listener)
+                    controller.setPlaybackSpeed(preferredSpeed)
                     refresh(controller)
                     startPositionUpdates(controller)
                 }.onFailure { error -> mutableState.value = PlaybackSnapshot(playbackError = error.message ?: "No se pudo conectar al reproductor") }
@@ -86,6 +103,7 @@ class Media3PlaybackController @Inject constructor(
         val index = items.indexOfFirst { it.mediaId == progress?.audioFileId }.coerceAtLeast(0)
         controller.setMediaItems(items, index, progress?.positionMs?.coerceAtLeast(0L) ?: 0L)
         controller.prepare()
+        controller.setPlaybackSpeed(preferredSpeed)
         controller.play()
         refresh(controller)
     }
@@ -133,10 +151,37 @@ class Media3PlaybackController @Inject constructor(
                 isPlaying = player.isPlaying,
                 currentPositionMs = player.currentPosition.coerceAtLeast(0L),
                 durationMs = player.duration.takeIf { it > 0L } ?: cachedFiles.firstOrNull { it.id == item?.mediaId }?.durationMs ?: 0L,
+                chapters = extractChapters(player, bookId, item?.mediaId),
+                playbackSpeed = player.playbackParameters.speed,
                 isBuffering = player.playbackState == Player.STATE_BUFFERING,
                 playbackError = player.playerError?.message,
             )
         }
+    }
+
+    private fun extractChapters(player: Player, bookId: String?, audioFileId: String?): List<Chapter> {
+        if (bookId == null || audioFileId == null) return emptyList()
+        return player.currentTracks.groups
+            .asSequence()
+            .flatMap { group -> (0 until group.length).asSequence().map { group.getTrackFormat(it) } }
+            .mapNotNull { it.metadata }
+            .flatMap { metadata -> (0 until metadata.length()).asSequence().map { metadata.get(it) } }
+            .filterIsInstance<Media3Chapter>()
+            .filterNot { it.isHidden }
+            .distinctBy { it.startTimeMs }
+            .sortedBy { it.startTimeMs }
+            .mapIndexed { index, chapter ->
+                Chapter(
+                    id = "$audioFileId:${chapter.startTimeMs}",
+                    bookId = bookId,
+                    audioFileId = audioFileId,
+                    title = chapter.title?.value ?: "Capítulo ${index + 1}",
+                    startMs = chapter.startTimeMs.coerceAtLeast(0L),
+                    endMs = chapter.endTimeMs.takeUnless { it == C.TIME_UNSET } ?: 0L,
+                    order = index,
+                )
+            }
+            .toList()
     }
 
     private fun startPositionUpdates(player: Player) {

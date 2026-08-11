@@ -14,7 +14,9 @@ archivos elegidos por el usuario sin cuentas, telemetría ni acceso a Internet.
 - Biblioteca en cuadrícula o lista, con búsqueda, filtros y ordenamiento natural.
 - Lectura de metadatos y carátulas incrustadas o ubicadas junto al audio.
 - Reproducción con Media3 y un servicio en primer plano.
-- Controles de reproducción, pausa, avance de 30 segundos y retroceso de 10.
+- Controles con saltos de avance y retroceso configurables.
+- Índice navegable para archivos M4A/M4B con capítulos Nero o QuickTime compatibles.
+- Velocidad global de reproducción ajustable entre 0.5× y 3×.
 - Mini reproductor y pantalla de reproducción completa.
 - Restauración del libro, archivo y posición más recientes.
 - Guardado periódico del progreso y guardado inmediato al pausar o buscar.
@@ -88,8 +90,9 @@ Para ejecutar las comprobaciones principales:
 - [x] Fase 1: base del proyecto, arquitectura, base de datos y navegación.
 - [x] Fase 2: selección de carpetas, escaneo y biblioteca local.
 - [x] Fase 3: reproducción en segundo plano y persistencia del progreso.
-- [ ] Fase 4: capítulos M4B/CUE, velocidad por libro, saltos configurables,
-  auto-retroceso y marcadores.
+- [ ] Fase 4: capítulos M4B/CUE, velocidad por libro, auto-retroceso y marcadores.
+  Los capítulos M4B compatibles, la velocidad global y los saltos configurables ya
+  están disponibles.
 - [ ] Fases posteriores: pulido de experiencia, accesibilidad y pruebas en más
   dispositivos.
 

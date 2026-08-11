@@ -26,6 +26,7 @@ data class GlobalSettings(
     val theme: ThemePreference = ThemePreference.SYSTEM,
     val libraryLayout: LibraryLayout = LibraryLayout.GRID,
     val librarySort: LibrarySort = LibrarySort.TITLE,
+    val playbackSpeed: Float = 1f,
     val skipBackwardSeconds: Int = 10,
     val skipForwardSeconds: Int = 30,
     val autoRewindEnabled: Boolean = true,
@@ -35,4 +36,7 @@ interface SettingsRepository {
     val settings: Flow<GlobalSettings>
     suspend fun setTheme(theme: ThemePreference)
     suspend fun setLibraryLayout(layout: LibraryLayout)
+    suspend fun setPlaybackSpeed(speed: Float)
+    suspend fun setSkipBackwardSeconds(seconds: Int)
+    suspend fun setSkipForwardSeconds(seconds: Int)
 }

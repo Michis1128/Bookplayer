@@ -15,22 +15,25 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.michis.player.core.ui.theme.LocalMichisSpacing
 import com.michis.player.core.ui.theme.paletteFor
 import com.michis.player.domain.repository.SettingsRepository
+import com.michis.player.domain.repository.GlobalSettings
 import com.michis.player.domain.repository.ThemePreference
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -41,7 +44,7 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
-    val selectedTheme by viewModel.theme.collectAsStateWithLifecycle()
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
     val spacing = LocalMichisSpacing.current
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -50,6 +53,35 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     ) {
         item {
             Text("Configuración", style = MaterialTheme.typography.headlineMedium)
+            Text(
+                "Reproducción",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(top = spacing.large),
+            )
+            PlaybackSettingSlider(
+                label = "Velocidad predeterminada",
+                value = settings.playbackSpeed,
+                valueRange = 0.5f..3f,
+                steps = 24,
+                valueLabel = { "%.1f×".format(it) },
+                onValueConfirmed = viewModel::setPlaybackSpeed,
+            )
+            PlaybackSettingSlider(
+                label = "Retroceder",
+                value = settings.skipBackwardSeconds.toFloat(),
+                valueRange = 5f..60f,
+                steps = 10,
+                valueLabel = { "${it.toInt()} segundos" },
+                onValueConfirmed = { viewModel.setSkipBackward(it.toInt()) },
+            )
+            PlaybackSettingSlider(
+                label = "Avanzar",
+                value = settings.skipForwardSeconds.toFloat(),
+                valueRange = 5f..60f,
+                steps = 10,
+                valueLabel = { "${it.toInt()} segundos" },
+                onValueConfirmed = { viewModel.setSkipForward(it.toInt()) },
+            )
             Text(
                 "Tema de color",
                 style = MaterialTheme.typography.titleMedium,
@@ -65,10 +97,35 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
         items(themeOptions, key = { it.preference.name }) { option ->
             ThemeOption(
                 option = option,
-                selected = selectedTheme == option.preference,
+                selected = settings.theme == option.preference,
                 onSelect = { viewModel.selectTheme(option.preference) },
             )
         }
+    }
+}
+
+@Composable
+private fun PlaybackSettingSlider(
+    label: String,
+    value: Float,
+    valueRange: ClosedFloatingPointRange<Float>,
+    steps: Int,
+    valueLabel: (Float) -> String,
+    onValueConfirmed: (Float) -> Unit,
+) {
+    var pendingValue by androidx.compose.runtime.remember(value) { androidx.compose.runtime.mutableFloatStateOf(value) }
+    Column(Modifier.fillMaxWidth().padding(top = 12.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(label)
+            Text(valueLabel(pendingValue), color = MaterialTheme.colorScheme.primary)
+        }
+        Slider(
+            value = pendingValue,
+            onValueChange = { pendingValue = it },
+            onValueChangeFinished = { onValueConfirmed(pendingValue) },
+            valueRange = valueRange,
+            steps = steps,
+        )
     }
 }
 
@@ -133,11 +190,22 @@ private val themeOptions = listOf(
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
-    val theme = settingsRepository.settings
-        .map { it.theme }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ThemePreference.SYSTEM)
+    val settings = settingsRepository.settings
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GlobalSettings())
 
     fun selectTheme(theme: ThemePreference) {
         viewModelScope.launch { settingsRepository.setTheme(theme) }
+    }
+
+    fun setPlaybackSpeed(speed: Float) {
+        viewModelScope.launch { settingsRepository.setPlaybackSpeed(speed) }
+    }
+
+    fun setSkipBackward(seconds: Int) {
+        viewModelScope.launch { settingsRepository.setSkipBackwardSeconds(seconds) }
+    }
+
+    fun setSkipForward(seconds: Int) {
+        viewModelScope.launch { settingsRepository.setSkipForwardSeconds(seconds) }
     }
 }

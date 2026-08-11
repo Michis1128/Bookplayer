@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark-mode palette; geometry and sizing remain identical. -->
+    <color name="launcher_background">#211632</color>
+    <color name="launcher_background_start">#302044</color>
+    <color name="launcher_background_center">#241833</color>
+    <color name="launcher_background_end">#160F24</color>
+    <color name="launcher_foreground">#D8B9FF</color>
+    <color name="launcher_foreground_inset">#9D79D1</color>
+    <color name="launcher_monochrome">#FFFFFF</color>
+</resources>

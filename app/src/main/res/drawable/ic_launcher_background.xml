@@ -10,9 +10,9 @@
                 android:startX="13" android:startY="7"
                 android:endX="95" android:endY="101"
                 android:type="linear">
-                <item android:offset="0" android:color="#FFD09DF2" />
-                <item android:offset="0.52" android:color="#FFC79BEE" />
-                <item android:offset="1" android:color="#FFAC83E7" />
+                <item android:offset="0" android:color="@color/launcher_background_start" />
+                <item android:offset="0.52" android:color="@color/launcher_background_center" />
+                <item android:offset="1" android:color="@color/launcher_background_end" />
             </gradient>
         </aapt:attr>
     </path>

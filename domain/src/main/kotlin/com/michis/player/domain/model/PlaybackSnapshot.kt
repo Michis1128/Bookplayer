@@ -6,6 +6,8 @@ data class PlaybackSnapshot(
     val isPlaying: Boolean = false,
     val currentPositionMs: Long = 0L,
     val durationMs: Long = 0L,
+    val chapters: List<Chapter> = emptyList(),
+    val playbackSpeed: Float = 1f,
     val isBuffering: Boolean = false,
     val playbackError: String? = null,
 )

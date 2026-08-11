@@ -70,6 +70,7 @@ class Media3PlaybackController @Inject constructor(
             {
                 runCatching { controllerFuture.get() }.onSuccess { controller ->
                     controller.addListener(listener)
+                    controller.setPlaybackSpeed(preferredSpeed)
                     refresh(controller)
                     startPositionUpdates(controller)
                 }.onFailure { error -> mutableState.value = PlaybackSnapshot(playbackError = error.message ?: "No se pudo conectar al reproductor") }

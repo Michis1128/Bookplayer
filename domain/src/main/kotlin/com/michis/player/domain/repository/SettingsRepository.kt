@@ -2,7 +2,23 @@ package com.michis.player.domain.repository
 
 import kotlinx.coroutines.flow.Flow
 
-enum class ThemePreference { SYSTEM, LIGHT, DARK }
+enum class ThemePreference {
+    SYSTEM,
+    LIGHT,
+    DARK,
+    SEPIA,
+    TWILIGHT,
+    CONSOLE,
+    PAPER,
+    SAND,
+    LAVENDER,
+    FOREST,
+    OCEAN,
+    GRAPHITE,
+    MIDNIGHT,
+    SOFT_PINK,
+    MINT,
+}
 enum class LibraryLayout { GRID, LIST }
 enum class LibrarySort { TITLE, AUTHOR, DATE_ADDED, PROGRESS, LAST_PLAYED }
 

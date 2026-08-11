@@ -18,7 +18,7 @@ archivos elegidos por el usuario sin cuentas, telemetría ni acceso a Internet.
 - Mini reproductor y pantalla de reproducción completa.
 - Restauración del libro, archivo y posición más recientes.
 - Guardado periódico del progreso y guardado inmediato al pausar o buscar.
-- Tema claro, oscuro o igual al sistema.
+- Quince modos de color: Sistema y las catorce paletas de Michis Reader.
 
 ## Privacidad
 

@@ -18,9 +18,12 @@ class DataStoreSettingsRepository @Inject constructor(
 ) : SettingsRepository {
     override val settings: Flow<GlobalSettings> = dataStore.data.map { preferences ->
         GlobalSettings(
-            theme = preferences[THEME]?.let(ThemePreference::valueOf) ?: ThemePreference.SYSTEM,
-            libraryLayout = preferences[LAYOUT]?.let(LibraryLayout::valueOf) ?: LibraryLayout.GRID,
-            librarySort = preferences[SORT]?.let(LibrarySort::valueOf) ?: LibrarySort.TITLE,
+            theme = preferences[THEME]?.let { value -> runCatching { ThemePreference.valueOf(value) }.getOrNull() }
+                ?: ThemePreference.SYSTEM,
+            libraryLayout = preferences[LAYOUT]?.let { value -> runCatching { LibraryLayout.valueOf(value) }.getOrNull() }
+                ?: LibraryLayout.GRID,
+            librarySort = preferences[SORT]?.let { value -> runCatching { LibrarySort.valueOf(value) }.getOrNull() }
+                ?: LibrarySort.TITLE,
         )
     }
 

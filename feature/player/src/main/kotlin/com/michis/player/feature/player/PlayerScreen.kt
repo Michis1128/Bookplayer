@@ -12,21 +12,25 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Forward30
+import androidx.compose.material.icons.rounded.FastForward
+import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Replay10
+import androidx.compose.material.icons.rounded.FormatListBulleted
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -44,6 +48,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.michis.player.core.ui.theme.LocalMichisSpacing
 import com.michis.player.domain.model.AudioFile
 import com.michis.player.domain.model.Audiobook
+import com.michis.player.domain.model.Chapter
 
 data class PlayerUiState(
     val currentBook: Audiobook? = null,
@@ -51,6 +56,10 @@ data class PlayerUiState(
     val isPlaying: Boolean = false,
     val currentPositionMs: Long = 0L,
     val durationMs: Long = 0L,
+    val chapters: List<Chapter> = emptyList(),
+    val playbackSpeed: Float = 1f,
+    val skipBackwardSeconds: Int = 10,
+    val skipForwardSeconds: Int = 30,
     val isBuffering: Boolean = false,
     val playbackError: String? = null,
 )
@@ -95,19 +104,30 @@ fun PlayerPanelHandleRoute(
 @Composable
 fun PlayerScreen(state: PlayerUiState, onEvent: (PlayerUiEvent) -> Unit) {
     var pendingSeekMs by remember(state.currentFile?.id) { mutableStateOf<Long?>(null) }
+    var showChapters by remember(state.currentFile?.id) { mutableStateOf(false) }
     val displayedPositionMs = (pendingSeekMs ?: state.currentPositionMs).coerceIn(0L, state.durationMs.coerceAtLeast(0L))
     BoxWithConstraints(Modifier.fillMaxSize()) {
         if (maxHeight < 600.dp) {
             CompactPlayerContent(state, displayedPositionMs, { pendingSeekMs = it }, {
                 pendingSeekMs?.let { onEvent(PlayerUiEvent.SeekTo(it)) }
                 pendingSeekMs = null
-            }, onEvent)
+            }, onEvent, { showChapters = true })
         } else {
             PortraitPlayerContent(state, displayedPositionMs, { pendingSeekMs = it }, {
                 pendingSeekMs?.let { onEvent(PlayerUiEvent.SeekTo(it)) }
                 pendingSeekMs = null
-            }, onEvent)
+            }, onEvent, { showChapters = true })
         }
+    }
+    if (showChapters && state.chapters.isNotEmpty()) {
+        ChapterSheet(
+            state = state,
+            onDismiss = { showChapters = false },
+            onChapterSelected = { chapter ->
+                onEvent(PlayerUiEvent.SeekTo(chapter.startMs))
+                showChapters = false
+            },
+        )
     }
 }
 
@@ -118,6 +138,7 @@ private fun PortraitPlayerContent(
     onSeekChange: (Long) -> Unit,
     onSeekFinished: () -> Unit,
     onEvent: (PlayerUiEvent) -> Unit,
+    onShowChapters: () -> Unit,
 ) {
     val spacing = LocalMichisSpacing.current
     Column(
@@ -128,7 +149,7 @@ private fun PortraitPlayerContent(
         BookCover(state, Modifier.fillMaxWidth(0.72f).heightIn(min = 220.dp, max = 360.dp))
         BookInformation(state, Modifier.padding(top = spacing.large))
         Timeline(state, displayedPositionMs, onSeekChange, onSeekFinished, Modifier.padding(top = spacing.medium))
-        PlaybackControls(state, onEvent, Modifier.padding(top = spacing.medium))
+        PlaybackControls(state, onEvent, onShowChapters, Modifier.padding(top = spacing.medium))
         PlaybackStatus(state, Modifier.padding(top = spacing.medium))
     }
 }
@@ -140,6 +161,7 @@ private fun CompactPlayerContent(
     onSeekChange: (Long) -> Unit,
     onSeekFinished: () -> Unit,
     onEvent: (PlayerUiEvent) -> Unit,
+    onShowChapters: () -> Unit,
 ) {
     val spacing = LocalMichisSpacing.current
     Column(
@@ -151,7 +173,7 @@ private fun CompactPlayerContent(
             BookInformation(state, Modifier.weight(1f).padding(start = spacing.medium))
         }
         Timeline(state, displayedPositionMs, onSeekChange, onSeekFinished, Modifier.padding(top = spacing.small))
-        PlaybackControls(state, onEvent, Modifier.padding(top = spacing.extraSmall))
+        PlaybackControls(state, onEvent, onShowChapters, Modifier.padding(top = spacing.extraSmall))
         PlaybackStatus(state, Modifier.padding(top = spacing.small))
     }
 }
@@ -209,14 +231,19 @@ private fun Timeline(
 }
 
 @Composable
-private fun PlaybackControls(state: PlayerUiState, onEvent: (PlayerUiEvent) -> Unit, modifier: Modifier = Modifier) {
+private fun PlaybackControls(
+    state: PlayerUiState,
+    onEvent: (PlayerUiEvent) -> Unit,
+    onShowChapters: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Row(
         modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         FilledIconButton(onClick = { onEvent(PlayerUiEvent.SkipBackward) }, enabled = state.currentFile != null) {
-            Icon(Icons.Rounded.Replay10, contentDescription = "Retroceder 10 segundos")
+            Icon(Icons.Rounded.FastRewind, contentDescription = "Retroceder ${state.skipBackwardSeconds} segundos")
         }
         FilledIconButton(
             onClick = { onEvent(PlayerUiEvent.TogglePlayback) },
@@ -230,7 +257,51 @@ private fun PlaybackControls(state: PlayerUiState, onEvent: (PlayerUiEvent) -> U
             )
         }
         FilledIconButton(onClick = { onEvent(PlayerUiEvent.SkipForward) }, enabled = state.currentFile != null) {
-            Icon(Icons.Rounded.Forward30, contentDescription = "Avanzar 30 segundos")
+            Icon(Icons.Rounded.FastForward, contentDescription = "Avanzar ${state.skipForwardSeconds} segundos")
+        }
+    }
+    if (state.chapters.isNotEmpty()) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+            androidx.compose.material3.TextButton(onClick = onShowChapters) {
+                Icon(Icons.Rounded.FormatListBulleted, contentDescription = null)
+                Text("Capítulos", modifier = Modifier.padding(start = 6.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChapterSheet(
+    state: PlayerUiState,
+    onDismiss: () -> Unit,
+    onChapterSelected: (Chapter) -> Unit,
+) {
+    val currentChapter = state.chapters.indexOfLast { it.startMs <= state.currentPositionMs }.coerceAtLeast(0)
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Text(
+            "Capítulos",
+            style = MaterialTheme.typography.headlineSmall,
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+        )
+        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 420.dp)) {
+            itemsIndexed(state.chapters, key = { _, chapter -> chapter.id }) { index, chapter ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onChapterSelected(chapter) }
+                        .padding(horizontal = 24.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            chapter.title,
+                            style = if (index == currentChapter) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge,
+                            color = if (index == currentChapter) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(formatDuration(chapter.startMs), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
         }
     }
 }

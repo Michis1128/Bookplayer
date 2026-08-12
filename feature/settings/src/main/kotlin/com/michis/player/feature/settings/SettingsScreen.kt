@@ -11,10 +11,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
@@ -47,6 +50,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
@@ -138,12 +142,9 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(bottom = spacing.small),
             )
-        }
-        items(themeOptions, key = { it.preference.name }) { option ->
-            ThemeOption(
-                option = option,
-                selected = settings.theme == option.preference,
-                onSelect = { viewModel.selectTheme(option.preference) },
+            ThemeSpinner(
+                selectedTheme = settings.theme,
+                onThemeSelected = viewModel::selectTheme,
             )
         }
     }
@@ -160,6 +161,74 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             },
             dismissButton = { TextButton(onClick = { pendingFolderRemoval = null }) { Text("Cancelar") } },
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ThemeSpinner(selectedTheme: ThemePreference, onThemeSelected: (ThemePreference) -> Unit) {
+    var expanded by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    val selected = themeOptions.first { it.preference == selectedTheme }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            shape = MaterialTheme.shapes.large,
+            tonalElevation = 2.dp,
+            modifier = Modifier.fillMaxWidth().menuAnchor().clickable { expanded = true },
+        ) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ThemePalette(selected, Modifier.padding(end = 12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(selected.label, style = MaterialTheme.typography.titleMedium)
+                    Text("Tema actual", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+            }
+        }
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            shape = MaterialTheme.shapes.large,
+        ) {
+            themeOptions.forEach { option ->
+                DropdownMenuItem(
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            ThemePalette(option, Modifier.padding(end = 12.dp))
+                            Text(option.label, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    },
+                    onClick = {
+                        onThemeSelected(option.preference)
+                        expanded = false
+                    },
+                    trailingIcon = {
+                        RadioButton(
+                            selected = option.preference == selectedTheme,
+                            onClick = null,
+                        )
+                    },
+                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThemePalette(option: ThemeOption, modifier: Modifier = Modifier) {
+    val preview = paletteFor(option.previewTheme)
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = modifier) {
+        PaletteDot(preview.background)
+        PaletteDot(preview.card)
+        PaletteDot(preview.accent)
     }
 }
 

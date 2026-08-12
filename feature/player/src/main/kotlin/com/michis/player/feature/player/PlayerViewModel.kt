@@ -21,6 +21,7 @@ class PlayerViewModel @Inject constructor(
         PlayerUiState(
             currentBook = snapshot.book,
             currentFile = snapshot.currentFile,
+            audioFiles = snapshot.audioFiles,
             isPlaying = snapshot.isPlaying,
             currentPositionMs = snapshot.currentPositionMs,
             durationMs = snapshot.durationMs,
@@ -41,6 +42,7 @@ class PlayerViewModel @Inject constructor(
             is PlayerUiEvent.SeekTo -> controller.seekTo(event.positionMs)
             PlayerUiEvent.SkipBackward -> controller.seekBy(-state.value.skipBackwardSeconds * 1_000L)
             PlayerUiEvent.SkipForward -> controller.seekBy(state.value.skipForwardSeconds * 1_000L)
+            is PlayerUiEvent.SelectFile -> controller.seekToFile(event.audioFileId)
         }
     }
 }

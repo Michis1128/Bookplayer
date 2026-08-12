@@ -10,4 +10,5 @@ interface PlaybackController {
     fun pause()
     fun seekTo(positionMs: Long)
     fun seekBy(offsetMs: Long)
+    fun seekToFile(audioFileId: String)
 }

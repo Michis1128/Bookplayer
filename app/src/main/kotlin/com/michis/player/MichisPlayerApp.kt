@@ -64,7 +64,11 @@ private data class TopLevelDestination(
 )
 
 @Composable
-fun MichisPlayerApp() {
+fun MichisPlayerApp(pictureInPicture: Boolean = false) {
+    if (pictureInPicture) {
+        Surface(Modifier.fillMaxSize()) { PlayerRoute(bookId = null) }
+        return
+    }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         PlayerScaffold(isLandscape = maxWidth > maxHeight)
     }

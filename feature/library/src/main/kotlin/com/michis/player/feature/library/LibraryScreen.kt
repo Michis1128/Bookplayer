@@ -46,6 +46,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.michis.player.core.ui.component.EmptyState
 import com.michis.player.core.ui.theme.LocalMichisSpacing
 import com.michis.player.domain.model.Audiobook
+import com.michis.player.domain.model.AudioFile
 import com.michis.player.domain.model.BookAvailability
 import com.michis.player.domain.model.BookStatus
 import java.io.File
@@ -65,8 +66,8 @@ sealed interface ScanUiState {
 }
 
 data class LibraryUiState(
-    val books: List<Audiobook> = emptyList(),
-    val continueListening: List<Audiobook> = emptyList(),
+    val books: List<LibraryBook> = emptyList(),
+    val continueListening: List<LibraryBook> = emptyList(),
     val hasLibraryRoot: Boolean = false,
     val query: String = "",
     val filter: LibraryFilter = LibraryFilter.ALL,
@@ -74,6 +75,8 @@ data class LibraryUiState(
     val sort: LibrarySortOption = LibrarySortOption.TITLE,
     val scan: ScanUiState = ScanUiState.Idle,
 )
+
+data class LibraryBook(val book: Audiobook, val files: List<AudioFile> = emptyList())
 
 sealed interface LibraryUiEvent {
     data class TreeSelected(val uri: String) : LibraryUiEvent
@@ -126,12 +129,12 @@ fun LibraryScreen(
                 modifier = Modifier.fillMaxSize().padding(horizontal = spacing.medium),
                 horizontalArrangement = Arrangement.spacedBy(spacing.medium),
                 verticalArrangement = Arrangement.spacedBy(spacing.medium),
-            ) { items(state.books, key = Audiobook::id) { BookGridCard(it, onOpenBook) } }
+            ) { items(state.books, key = { it.book.id }) { BookGridCard(it, onOpenBook) } }
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(horizontal = spacing.medium),
                 verticalArrangement = Arrangement.spacedBy(spacing.small),
-            ) { items(state.books, key = Audiobook::id) { BookListCard(it, onOpenBook) } }
+            ) { items(state.books, key = { it.book.id }) { BookListCard(it, onOpenBook) } }
         }
     }
 }
@@ -168,12 +171,13 @@ private fun LibraryHeader(state: LibraryUiState, onEvent: (LibraryUiEvent) -> Un
     }
 }
 
-@Composable private fun ContinueListening(books: List<Audiobook>, onOpen: (String) -> Unit) {
+@Composable private fun ContinueListening(books: List<LibraryBook>, onOpen: (String) -> Unit) {
     val spacing = LocalMichisSpacing.current
     Column(Modifier.fillMaxWidth().padding(bottom = spacing.medium)) {
         Text("Continuar escuchando", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = spacing.medium, vertical = spacing.small))
         LazyRow(contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = spacing.medium), horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
-            items(books, key = Audiobook::id) { book ->
+            items(books, key = { it.book.id }) { item ->
+                val book = item.book
                 Card(Modifier.height(96.dp).fillParentMaxWidth(0.72f).clickable { onOpen(book.id) }) {
                     Row(Modifier.padding(8.dp)) {
                         BookCover(book, Modifier.height(80.dp).aspectRatio(0.72f))
@@ -197,20 +201,42 @@ private fun LibraryHeader(state: LibraryUiState, onEvent: (LibraryUiEvent) -> Un
     }
 }
 
-@Composable private fun BookGridCard(book: Audiobook, onOpen: (String) -> Unit) {
+@Composable private fun BookGridCard(item: LibraryBook, onOpen: (String) -> Unit) {
+    val book = item.book
     Card(Modifier.fillMaxWidth().clickable { onOpen(book.id) }) {
         Column {
             BookCover(book, Modifier.fillMaxWidth().aspectRatio(0.72f))
             BookLabels(book, Modifier.padding(12.dp))
+            AudioFileList(item.files, Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
         }
     }
 }
 
-@Composable private fun BookListCard(book: Audiobook, onOpen: (String) -> Unit) {
+@Composable private fun BookListCard(item: LibraryBook, onOpen: (String) -> Unit) {
+    val book = item.book
     Card(Modifier.fillMaxWidth().clickable { onOpen(book.id) }) {
         Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
             BookCover(book, Modifier.height(88.dp).aspectRatio(0.72f))
-            BookLabels(book, Modifier.weight(1f).padding(start = 12.dp))
+            Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                BookLabels(book)
+                AudioFileList(item.files, Modifier.padding(top = 8.dp))
+            }
+        }
+    }
+}
+
+@Composable private fun AudioFileList(files: List<AudioFile>, modifier: Modifier = Modifier) {
+    if (files.size <= 1) return
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("${files.size} archivos", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        files.forEachIndexed { index, file ->
+            Text(
+                "${index + 1}. ${file.name}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

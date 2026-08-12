@@ -17,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -82,6 +83,23 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 valueLabel = { "${it.toInt()} segundos" },
                 onValueConfirmed = { viewModel.setSkipForward(it.toInt()) },
             )
+            Row(
+                Modifier.fillMaxWidth().clickable { viewModel.setPictureInPicture(!settings.pictureInPictureEnabled) }.padding(top = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("Ventana flotante (PiP)")
+                    Text(
+                        "Muestra el reproductor sobre otras aplicaciones al salir.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = settings.pictureInPictureEnabled,
+                    onCheckedChange = viewModel::setPictureInPicture,
+                )
+            }
             Text(
                 "Tema de color",
                 style = MaterialTheme.typography.titleMedium,
@@ -207,5 +225,9 @@ class SettingsViewModel @Inject constructor(
 
     fun setSkipForward(seconds: Int) {
         viewModelScope.launch { settingsRepository.setSkipForwardSeconds(seconds) }
+    }
+
+    fun setPictureInPicture(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setPictureInPictureEnabled(enabled) }
     }
 }

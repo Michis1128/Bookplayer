@@ -54,6 +54,7 @@ import com.michis.player.domain.model.Chapter
 data class PlayerUiState(
     val currentBook: Audiobook? = null,
     val currentFile: AudioFile? = null,
+    val audioFiles: List<AudioFile> = emptyList(),
     val isPlaying: Boolean = false,
     val currentPositionMs: Long = 0L,
     val durationMs: Long = 0L,
@@ -70,6 +71,7 @@ sealed interface PlayerUiEvent {
     data class SeekTo(val positionMs: Long) : PlayerUiEvent
     data object SkipBackward : PlayerUiEvent
     data object SkipForward : PlayerUiEvent
+    data class SelectFile(val audioFileId: String) : PlayerUiEvent
 }
 
 @Composable
@@ -105,28 +107,32 @@ fun PlayerPanelHandleRoute(
 @Composable
 fun PlayerScreen(state: PlayerUiState, onEvent: (PlayerUiEvent) -> Unit) {
     var pendingSeekMs by remember(state.currentFile?.id) { mutableStateOf<Long?>(null) }
-    var showChapters by remember(state.currentFile?.id) { mutableStateOf(false) }
+    var showIndex by remember(state.currentBook?.id) { mutableStateOf(false) }
     val displayedPositionMs = (pendingSeekMs ?: state.currentPositionMs).coerceIn(0L, state.durationMs.coerceAtLeast(0L))
     BoxWithConstraints(Modifier.fillMaxSize()) {
         if (maxHeight < 600.dp) {
             CompactPlayerContent(state, displayedPositionMs, { pendingSeekMs = it }, {
                 pendingSeekMs?.let { onEvent(PlayerUiEvent.SeekTo(it)) }
                 pendingSeekMs = null
-            }, onEvent, { showChapters = true })
+            }, onEvent, { showIndex = true })
         } else {
             PortraitPlayerContent(state, displayedPositionMs, { pendingSeekMs = it }, {
                 pendingSeekMs?.let { onEvent(PlayerUiEvent.SeekTo(it)) }
                 pendingSeekMs = null
-            }, onEvent, { showChapters = true })
+            }, onEvent, { showIndex = true })
         }
     }
-    if (showChapters && state.chapters.isNotEmpty()) {
-        ChapterSheet(
+    if (showIndex && state.audioFiles.isNotEmpty()) {
+        PlaybackIndexSheet(
             state = state,
-            onDismiss = { showChapters = false },
+            onDismiss = { showIndex = false },
+            onFileSelected = { file ->
+                onEvent(PlayerUiEvent.SelectFile(file.id))
+                showIndex = false
+            },
             onChapterSelected = { chapter ->
                 onEvent(PlayerUiEvent.SeekTo(chapter.startMs))
-                showChapters = false
+                showIndex = false
             },
         )
     }
@@ -275,11 +281,11 @@ private fun PlaybackControls(
             Icon(Icons.Rounded.FastForward, contentDescription = "Avanzar ${state.skipForwardSeconds} segundos")
         }
     }
-    if (state.chapters.isNotEmpty()) {
+    if (state.audioFiles.isNotEmpty()) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
             androidx.compose.material3.TextButton(onClick = onShowChapters) {
                 Icon(Icons.AutoMirrored.Rounded.FormatListBulleted, contentDescription = null)
-                Text("Capítulos", modifier = Modifier.padding(start = 6.dp))
+                Text("Índice", modifier = Modifier.padding(start = 6.dp))
             }
         }
     }
@@ -287,25 +293,47 @@ private fun PlaybackControls(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ChapterSheet(
+private fun PlaybackIndexSheet(
     state: PlayerUiState,
     onDismiss: () -> Unit,
+    onFileSelected: (AudioFile) -> Unit,
     onChapterSelected: (Chapter) -> Unit,
 ) {
     val currentChapter = state.chapters.indexOfLast { it.startMs <= state.currentPositionMs }.coerceAtLeast(0)
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Text(
-            "Capítulos",
+            "Índice",
             style = MaterialTheme.typography.headlineSmall,
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
         )
         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 420.dp)) {
-            itemsIndexed(state.chapters, key = { _, chapter -> chapter.id }) { index, chapter ->
+            state.audioFiles.forEachIndexed { fileIndex, file ->
+                item(key = file.id) {
+                    val selected = file.id == state.currentFile?.id
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { onFileSelected(file) }
+                            .padding(horizontal = 24.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                file.name,
+                                style = if (selected) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge,
+                                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text("Archivo ${fileIndex + 1} de ${state.audioFiles.size}", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+                if (file.id == state.currentFile?.id) {
+                    itemsIndexed(state.chapters, key = { _, chapter -> chapter.id }) { index, chapter ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { onChapterSelected(chapter) }
-                        .padding(horizontal = 24.dp, vertical = 12.dp),
+                                .padding(start = 48.dp, end = 24.dp, top = 8.dp, bottom = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
@@ -316,6 +344,8 @@ private fun ChapterSheet(
                         )
                         Text(formatDuration(chapter.startMs), style = MaterialTheme.typography.bodySmall)
                     }
+                }
+            }
                 }
             }
         }

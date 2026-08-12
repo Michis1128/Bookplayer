@@ -86,7 +86,7 @@ class SafLibraryScanner @Inject constructor(
                             updatedAt = now,
                             rootId = root.id,
                             sourceUri = candidate.sourceUri,
-                            hidden = existing?.hidden ?: false,
+                            hidden = false,
                         ),
                     )
                     audioFileDao.upsertAll(extracted)

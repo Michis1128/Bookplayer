@@ -24,7 +24,7 @@ class LocalAudiobookRepository @Inject constructor(
         if (availableBookIds.isEmpty()) dao.markRootUnavailable(rootId, System.currentTimeMillis())
         else dao.markMissingUnavailable(rootId, availableBookIds, System.currentTimeMillis())
     }
-    override suspend fun removeFromLibrary(id: String) = dao.hide(id, System.currentTimeMillis())
+    override suspend fun removeFromLibrary(id: String) = dao.delete(id)
 }
 
 private fun AudiobookEntity.asDomain() = Audiobook(

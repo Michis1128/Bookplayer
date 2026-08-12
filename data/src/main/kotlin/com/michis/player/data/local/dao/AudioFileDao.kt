@@ -7,6 +7,7 @@ import com.michis.player.data.local.entity.AudioFileEntity
 
 @Dao
 interface AudioFileDao {
+    @Query("SELECT * FROM audio_files ORDER BY bookId, `order`") fun observeAll(): kotlinx.coroutines.flow.Flow<List<AudioFileEntity>>
     @Query("SELECT * FROM audio_files WHERE uri = :uri LIMIT 1") suspend fun findByUri(uri: String): AudioFileEntity?
     @Query("SELECT * FROM audio_files WHERE bookId = :bookId ORDER BY `order`") suspend fun findByBook(bookId: String): List<AudioFileEntity>
     @Upsert suspend fun upsertAll(files: List<AudioFileEntity>)

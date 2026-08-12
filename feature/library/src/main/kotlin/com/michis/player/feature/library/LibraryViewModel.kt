@@ -39,15 +39,18 @@ class LibraryViewModel @Inject constructor(
     private val preferences = combine(query, filter, viewMode, sort) { query, filter, mode, sort ->
         Preferences(query, filter, mode, sort)
     }
-    private val content = combine(audiobooks.observeAudiobooks(), rootsState) { books, libraryRoots -> Content(books, libraryRoots) }
+    private val content = combine(audiobooks.observeAudiobooks(), audiobooks.observeAudioFiles(), rootsState) { books, files, libraryRoots ->
+        val filesByBook = files.groupBy { it.bookId }
+        Content(books.map { book -> LibraryBook(book, filesByBook[book.id].orEmpty()) }, libraryRoots)
+    }
 
     val state = combine(content, preferences, scan) { content, preferences, scanState ->
         val visible = content.books.asSequence()
-            .filter { preferences.query.isBlank() || it.title.contains(preferences.query, true) || it.author?.contains(preferences.query, true) == true }
-            .filter { preferences.filter == LibraryFilter.ALL || it.status.name == preferences.filter.name }
+            .filter { item -> preferences.query.isBlank() || item.book.title.contains(preferences.query, true) || item.book.author?.contains(preferences.query, true) == true || item.files.any { it.name.contains(preferences.query, true) } }
+            .filter { preferences.filter == LibraryFilter.ALL || it.book.status.name == preferences.filter.name }
             .sortedWith(preferences.sort.comparator)
             .toList()
-        val listening = content.books.filter { it.status == BookStatus.IN_PROGRESS }.sortedByDescending { it.updatedAt }
+        val listening = content.books.filter { it.book.status == BookStatus.IN_PROGRESS }.sortedByDescending { it.book.updatedAt }
         LibraryUiState(visible, listening, content.roots.isNotEmpty(), preferences.query, preferences.filter, preferences.mode, preferences.sort, scanState)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibraryUiState())
 
@@ -78,13 +81,13 @@ class LibraryViewModel @Inject constructor(
 }
 
 private data class Preferences(val query: String, val filter: LibraryFilter, val mode: LibraryViewMode, val sort: LibrarySortOption)
-private data class Content(val books: List<Audiobook>, val roots: List<LibraryRoot>)
-private val LibrarySortOption.comparator: Comparator<Audiobook> get() = when (this) {
-    LibrarySortOption.TITLE -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.title }
-    LibrarySortOption.AUTHOR -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.author ?: "" }
-    LibrarySortOption.DATE_ADDED -> compareByDescending { it.createdAt }
-    LibrarySortOption.PROGRESS -> compareBy { when (it.status) { BookStatus.IN_PROGRESS -> 0; BookStatus.NEW -> 1; BookStatus.COMPLETED -> 2 } }
-    LibrarySortOption.LAST_PLAYED -> compareByDescending { it.updatedAt }
+private data class Content(val books: List<LibraryBook>, val roots: List<LibraryRoot>)
+private val LibrarySortOption.comparator: Comparator<LibraryBook> get() = when (this) {
+    LibrarySortOption.TITLE -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.book.title }
+    LibrarySortOption.AUTHOR -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.book.author ?: "" }
+    LibrarySortOption.DATE_ADDED -> compareByDescending { it.book.createdAt }
+    LibrarySortOption.PROGRESS -> compareBy { when (it.book.status) { BookStatus.IN_PROGRESS -> 0; BookStatus.NEW -> 1; BookStatus.COMPLETED -> 2 } }
+    LibrarySortOption.LAST_PLAYED -> compareByDescending { it.book.updatedAt }
 }
 private fun LibraryScanProgress.asUiState(): ScanUiState = when (this) {
     LibraryScanProgress.Discovering -> ScanUiState.Discovering

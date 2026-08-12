@@ -30,6 +30,7 @@ data class GlobalSettings(
     val skipBackwardSeconds: Int = 10,
     val skipForwardSeconds: Int = 30,
     val autoRewindEnabled: Boolean = true,
+    val pictureInPictureEnabled: Boolean = true,
 )
 
 interface SettingsRepository {
@@ -39,4 +40,5 @@ interface SettingsRepository {
     suspend fun setPlaybackSpeed(speed: Float)
     suspend fun setSkipBackwardSeconds(seconds: Int)
     suspend fun setSkipForwardSeconds(seconds: Int)
+    suspend fun setPictureInPictureEnabled(enabled: Boolean)
 }

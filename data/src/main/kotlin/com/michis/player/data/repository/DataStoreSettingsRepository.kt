@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import com.michis.player.domain.repository.GlobalSettings
 import com.michis.player.domain.repository.LibraryLayout
 import com.michis.player.domain.repository.LibrarySort
@@ -29,6 +30,7 @@ class DataStoreSettingsRepository @Inject constructor(
             playbackSpeed = preferences[PLAYBACK_SPEED]?.coerceIn(0.5f, 3f) ?: 1f,
             skipBackwardSeconds = preferences[SKIP_BACKWARD]?.coerceIn(5, 60) ?: 10,
             skipForwardSeconds = preferences[SKIP_FORWARD]?.coerceIn(5, 60) ?: 30,
+            pictureInPictureEnabled = preferences[PICTURE_IN_PICTURE] ?: true,
         )
     }
 
@@ -37,6 +39,7 @@ class DataStoreSettingsRepository @Inject constructor(
     override suspend fun setPlaybackSpeed(speed: Float) { dataStore.edit { it[PLAYBACK_SPEED] = speed.coerceIn(0.5f, 3f) } }
     override suspend fun setSkipBackwardSeconds(seconds: Int) { dataStore.edit { it[SKIP_BACKWARD] = seconds.coerceIn(5, 60) } }
     override suspend fun setSkipForwardSeconds(seconds: Int) { dataStore.edit { it[SKIP_FORWARD] = seconds.coerceIn(5, 60) } }
+    override suspend fun setPictureInPictureEnabled(enabled: Boolean) { dataStore.edit { it[PICTURE_IN_PICTURE] = enabled } }
 
     private companion object {
         val THEME = stringPreferencesKey("theme")
@@ -45,5 +48,6 @@ class DataStoreSettingsRepository @Inject constructor(
         val PLAYBACK_SPEED = floatPreferencesKey("playback_speed")
         val SKIP_BACKWARD = intPreferencesKey("skip_backward_seconds")
         val SKIP_FORWARD = intPreferencesKey("skip_forward_seconds")
+        val PICTURE_IN_PICTURE = booleanPreferencesKey("picture_in_picture_enabled")
     }
 }

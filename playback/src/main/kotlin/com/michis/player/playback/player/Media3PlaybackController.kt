@@ -114,6 +114,10 @@ class Media3PlaybackController @Inject constructor(
     override fun seekBy(offsetMs: Long) = withController { controller ->
         controller.seekTo((controller.currentPosition + offsetMs).coerceIn(0L, controller.duration.takeIf { it > 0 } ?: Long.MAX_VALUE))
     }
+    override fun seekToFile(audioFileId: String) = withController { controller ->
+        val index = (0 until controller.mediaItemCount).indexOfFirst { controller.getMediaItemAt(it).mediaId == audioFileId }
+        if (index >= 0) controller.seekTo(index, 0L)
+    }
 
     private fun withController(action: (MediaController) -> Unit) {
         if (controllerFuture.isDone) runCatching { controllerFuture.get() }.onSuccess(action)
@@ -148,6 +152,7 @@ class Media3PlaybackController @Inject constructor(
             mutableState.value = PlaybackSnapshot(
                 book = cachedBook,
                 currentFile = cachedFiles.firstOrNull { it.id == item?.mediaId },
+                audioFiles = cachedFiles,
                 isPlaying = player.isPlaying,
                 currentPositionMs = player.currentPosition.coerceAtLeast(0L),
                 durationMs = player.duration.takeIf { it > 0L } ?: cachedFiles.firstOrNull { it.id == item?.mediaId }?.durationMs ?: 0L,

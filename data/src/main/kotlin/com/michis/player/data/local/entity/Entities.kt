@@ -21,6 +21,7 @@ data class AudiobookEntity(
     val updatedAt: Long,
     val rootId: String?,
     val sourceUri: String?,
+    val hidden: Boolean = false,
 )
 
 @Entity(

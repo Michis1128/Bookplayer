@@ -9,4 +9,5 @@ interface AudiobookRepository {
     fun observeAudiobook(id: String): Flow<Audiobook?>
     fun observeAudioFiles(): Flow<List<AudioFile>>
     suspend fun markMissingBooksUnavailable(rootId: String, availableBookIds: Set<String>)
+    suspend fun removeFromLibrary(id: String)
 }

@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface AudiobookDao {
-    @Query("SELECT * FROM audiobooks ORDER BY title COLLATE NOCASE")
+    @Query("SELECT * FROM audiobooks WHERE hidden = 0 ORDER BY title COLLATE NOCASE")
     fun observeAll(): Flow<List<AudiobookEntity>>
 
     @Query("SELECT * FROM audiobooks WHERE id = :id")
@@ -33,4 +33,7 @@ interface AudiobookDao {
 
     @Query("UPDATE audiobooks SET status = :status, updatedAt = :updatedAt WHERE id = :bookId")
     suspend fun updateStatus(bookId: String, status: String, updatedAt: Long)
+
+    @Query("UPDATE audiobooks SET hidden = 1, updatedAt = :updatedAt WHERE id = :bookId")
+    suspend fun hide(bookId: String, updatedAt: Long)
 }

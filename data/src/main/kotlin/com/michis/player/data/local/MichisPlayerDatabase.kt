@@ -12,7 +12,7 @@ import com.michis.player.data.local.entity.*
     entities = [LibraryRootEntity::class, AudiobookEntity::class, AudioFileEntity::class,
         ChapterEntity::class, PlaybackProgressEntity::class, BookmarkEntity::class,
         BookPlaybackSettingsEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class MichisPlayerDatabase : RoomDatabase() {

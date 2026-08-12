@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
@@ -29,6 +31,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -85,6 +88,7 @@ sealed interface LibraryUiEvent {
     data class SortChanged(val sort: LibrarySortOption) : LibraryUiEvent
     data object ToggleViewMode : LibraryUiEvent
     data object Rescan : LibraryUiEvent
+    data class RemoveFromLibrary(val bookId: String) : LibraryUiEvent
 }
 
 @Composable
@@ -112,10 +116,11 @@ fun LibraryScreen(
     onOpenBook: (String) -> Unit,
 ) {
     val spacing = LocalMichisSpacing.current
+    var pendingRemoval by remember { mutableStateOf<LibraryBook?>(null) }
     Column(Modifier.fillMaxSize()) {
         LibraryHeader(state, onEvent, onSelectLibrary)
         ScanStatus(state.scan)
-        if (state.continueListening.isNotEmpty()) ContinueListening(state.continueListening, onOpenBook)
+        if (state.continueListening.isNotEmpty()) ContinueListening(state.continueListening, onOpenBook) { pendingRemoval = it }
         if (state.books.isEmpty()) {
             EmptyState(
                 title = if (state.hasLibraryRoot) "No se encontraron audiolibros" else "Tu biblioteca está vacía",
@@ -129,13 +134,27 @@ fun LibraryScreen(
                 modifier = Modifier.fillMaxSize().padding(horizontal = spacing.medium),
                 horizontalArrangement = Arrangement.spacedBy(spacing.medium),
                 verticalArrangement = Arrangement.spacedBy(spacing.medium),
-            ) { items(state.books, key = { it.book.id }) { BookGridCard(it, onOpenBook) } }
+            ) { items(state.books, key = { it.book.id }) { BookGridCard(it, onOpenBook) { pendingRemoval = it } } }
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(horizontal = spacing.medium),
                 verticalArrangement = Arrangement.spacedBy(spacing.small),
-            ) { items(state.books, key = { it.book.id }) { BookListCard(it, onOpenBook) } }
+            ) { items(state.books, key = { it.book.id }) { BookListCard(it, onOpenBook) { pendingRemoval = it } } }
         }
+    }
+    pendingRemoval?.let { item ->
+        AlertDialog(
+            onDismissRequest = { pendingRemoval = null },
+            title = { Text("Quitar de la biblioteca") },
+            text = { Text("¿Quieres quitar “${item.book.title}” de la biblioteca? Los archivos de audio permanecerán en el dispositivo.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onEvent(LibraryUiEvent.RemoveFromLibrary(item.book.id))
+                    pendingRemoval = null
+                }) { Text("Quitar") }
+            },
+            dismissButton = { TextButton(onClick = { pendingRemoval = null }) { Text("Cancelar") } },
+        )
     }
 }
 
@@ -171,14 +190,14 @@ private fun LibraryHeader(state: LibraryUiState, onEvent: (LibraryUiEvent) -> Un
     }
 }
 
-@Composable private fun ContinueListening(books: List<LibraryBook>, onOpen: (String) -> Unit) {
+@Composable private fun ContinueListening(books: List<LibraryBook>, onOpen: (String) -> Unit, onRemove: (LibraryBook) -> Unit) {
     val spacing = LocalMichisSpacing.current
     Column(Modifier.fillMaxWidth().padding(bottom = spacing.medium)) {
         Text("Continuar escuchando", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = spacing.medium, vertical = spacing.small))
         LazyRow(contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = spacing.medium), horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
             items(books, key = { it.book.id }) { item ->
                 val book = item.book
-                Card(Modifier.height(96.dp).fillParentMaxWidth(0.72f).clickable { onOpen(book.id) }) {
+                Card(Modifier.height(96.dp).fillParentMaxWidth(0.72f).combinedClickable(onClick = { onOpen(book.id) }, onLongClick = { onRemove(item) })) {
                     Row(Modifier.padding(8.dp)) {
                         BookCover(book, Modifier.height(80.dp).aspectRatio(0.72f))
                         BookLabels(book, Modifier.padding(start = 12.dp))
@@ -201,9 +220,9 @@ private fun LibraryHeader(state: LibraryUiState, onEvent: (LibraryUiEvent) -> Un
     }
 }
 
-@Composable private fun BookGridCard(item: LibraryBook, onOpen: (String) -> Unit) {
+@Composable private fun BookGridCard(item: LibraryBook, onOpen: (String) -> Unit, onRemove: (LibraryBook) -> Unit) {
     val book = item.book
-    Card(Modifier.fillMaxWidth().clickable { onOpen(book.id) }) {
+    Card(Modifier.fillMaxWidth().combinedClickable(onClick = { onOpen(book.id) }, onLongClick = { onRemove(item) })) {
         Column {
             BookCover(book, Modifier.fillMaxWidth().aspectRatio(0.72f))
             BookLabels(book, Modifier.padding(12.dp))
@@ -212,9 +231,9 @@ private fun LibraryHeader(state: LibraryUiState, onEvent: (LibraryUiEvent) -> Un
     }
 }
 
-@Composable private fun BookListCard(item: LibraryBook, onOpen: (String) -> Unit) {
+@Composable private fun BookListCard(item: LibraryBook, onOpen: (String) -> Unit, onRemove: (LibraryBook) -> Unit) {
     val book = item.book
-    Card(Modifier.fillMaxWidth().clickable { onOpen(book.id) }) {
+    Card(Modifier.fillMaxWidth().combinedClickable(onClick = { onOpen(book.id) }, onLongClick = { onRemove(item) })) {
         Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
             BookCover(book, Modifier.height(88.dp).aspectRatio(0.72f))
             Column(Modifier.weight(1f).padding(start = 12.dp)) {

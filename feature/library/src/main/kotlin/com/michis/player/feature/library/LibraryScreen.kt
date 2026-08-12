@@ -197,10 +197,19 @@ private fun LibraryHeader(state: LibraryUiState, onEvent: (LibraryUiEvent) -> Un
         LazyRow(contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = spacing.medium), horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
             items(books, key = { it.book.id }) { item ->
                 val book = item.book
-                Card(Modifier.height(96.dp).fillParentMaxWidth(0.72f).combinedClickable(onClick = { onOpen(book.id) }, onLongClick = { onRemove(item) })) {
-                    Row(Modifier.padding(8.dp)) {
-                        BookCover(book, Modifier.height(80.dp).aspectRatio(0.72f))
-                        BookLabels(book, Modifier.padding(start = 12.dp))
+                Card(Modifier.height(52.dp).fillParentMaxWidth(0.46f).combinedClickable(onClick = { onOpen(book.id) }, onLongClick = { onRemove(item) })) {
+                    Row(Modifier.padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        BookCover(book, Modifier.height(44.dp).aspectRatio(0.72f))
+                        Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                            Text(book.title, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(
+                                book.author ?: "Autor desconocido",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                     }
                 }
             }

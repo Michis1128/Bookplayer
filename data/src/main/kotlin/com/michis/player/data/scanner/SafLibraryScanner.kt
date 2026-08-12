@@ -68,7 +68,8 @@ class SafLibraryScanner @Inject constructor(
 
                     val existing = audiobookDao.findBySourceUri(candidate.sourceUri)
                     val now = System.currentTimeMillis()
-                    val title = extracted.firstNotNullOfOrNull { it.album }?.takeIf(String::isNotBlank)
+                    val title = extracted.firstNotNullOfOrNull { it.album.normalizedMetadata() }
+                        ?: extracted.singleOrNull()?.title.normalizedMetadata()
                         ?: candidate.displayName.ifBlank { "Audiolibro sin título" }
                     val author = extracted.firstNotNullOfOrNull { it.author?.takeIf(String::isNotBlank) }
                     val coverUri = cacheCover(bookId, candidate)
@@ -120,12 +121,14 @@ class SafLibraryScanner @Inject constructor(
     }
 
     private fun toBookCandidates(folder: DiscoveredFolder): List<BookCandidate> {
+        val folderName = folder.directory.name?.takeIf(String::isNotBlank)
         val m4b = folder.audio.filter { it.extension() == "m4b" }.map { file ->
-            BookCandidate(file.nameWithoutExtension(), file.uri.toString(), listOf(file), folder.images)
+            val fallbackName = if (folder.audio.size == 1) folderName ?: file.nameWithoutExtension() else file.nameWithoutExtension()
+            BookCandidate(fallbackName, file.uri.toString(), listOf(file), folder.images)
         }
         val remaining = folder.audio.filterNot { it.extension() == "m4b" }
         return m4b + if (remaining.isNotEmpty()) listOf(
-            BookCandidate(folder.directory.name ?: remaining.first().nameWithoutExtension(), folder.directory.uri.toString(), remaining, folder.images),
+            BookCandidate(folderName ?: remaining.first().nameWithoutExtension(), folder.directory.uri.toString(), remaining, folder.images),
         ) else emptyList()
     }
 
@@ -172,6 +175,7 @@ private fun DocumentFile.nameWithoutExtension() = name?.substringBeforeLast('.')
 private fun DocumentFile.isSupportedAudio() = extension() in SafLibraryScanner.supportedAudio
 private fun DocumentFile.isSupportedImage() = extension() in SafLibraryScanner.supportedImages
 private fun Long.nullIfUnknown(): Long? = takeIf { it > 0L }
+private fun String?.normalizedMetadata(): String? = this?.trim()?.takeIf(String::isNotEmpty)
 private fun DocumentFile.coverPriority(): Int = when (name?.lowercase()) {
     "cover.jpg" -> 0; "cover.png" -> 1; "folder.jpg" -> 2; else -> 3
 }

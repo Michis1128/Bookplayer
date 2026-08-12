@@ -36,4 +36,7 @@ interface AudiobookDao {
 
     @Query("DELETE FROM audiobooks WHERE id = :bookId")
     suspend fun delete(bookId: String)
+
+    @Query("DELETE FROM audiobooks WHERE rootId = :rootId")
+    suspend fun deleteByRoot(rootId: String)
 }

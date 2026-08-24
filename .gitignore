@@ -9,3 +9,4 @@ captures/
 .cxx/
 *.hprof
 gradle/gradle-daemon-jvm.properties
+.kotlin

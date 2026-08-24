@@ -21,6 +21,7 @@ data class AudiobookEntity(
     val updatedAt: Long,
     val rootId: String?,
     val sourceUri: String?,
+    val hidden: Boolean = false,
 )
 
 @Entity(
@@ -72,20 +73,6 @@ data class PlaybackProgressEntity(
     val lastPausedAt: Long?,
     val completed: Boolean,
     val updatedAt: Long,
-)
-
-@Entity(
-    tableName = "bookmarks",
-    foreignKeys = [ForeignKey(entity = AudiobookEntity::class, parentColumns = ["id"], childColumns = ["bookId"], onDelete = ForeignKey.CASCADE)],
-    indices = [Index("bookId"), Index("audioFileId")],
-)
-data class BookmarkEntity(
-    @PrimaryKey val id: String,
-    val bookId: String,
-    val audioFileId: String?,
-    val timestampMs: Long,
-    val note: String,
-    val createdAt: Long,
 )
 
 @Entity(

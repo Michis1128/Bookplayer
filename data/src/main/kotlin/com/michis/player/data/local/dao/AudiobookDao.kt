@@ -33,4 +33,10 @@ interface AudiobookDao {
 
     @Query("UPDATE audiobooks SET status = :status, updatedAt = :updatedAt WHERE id = :bookId")
     suspend fun updateStatus(bookId: String, status: String, updatedAt: Long)
+
+    @Query("DELETE FROM audiobooks WHERE id = :bookId")
+    suspend fun delete(bookId: String)
+
+    @Query("DELETE FROM audiobooks WHERE rootId = :rootId")
+    suspend fun deleteByRoot(rootId: String)
 }

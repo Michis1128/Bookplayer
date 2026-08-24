@@ -11,14 +11,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -34,6 +39,8 @@ import androidx.lifecycle.viewModelScope
 import com.michis.player.core.ui.theme.LocalMichisSpacing
 import com.michis.player.core.ui.theme.paletteFor
 import com.michis.player.domain.repository.SettingsRepository
+import com.michis.player.domain.repository.LibraryRootRepository
+import com.michis.player.domain.model.LibraryRoot
 import com.michis.player.domain.repository.GlobalSettings
 import com.michis.player.domain.repository.ThemePreference
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -43,9 +50,12 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val selectedFolders by viewModel.selectedFolders.collectAsStateWithLifecycle()
+    var pendingFolderRemoval by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<LibraryRoot?>(null) }
     val spacing = LocalMichisSpacing.current
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -101,6 +111,27 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 )
             }
             Text(
+                "Carpetas de la biblioteca",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(top = spacing.large, bottom = spacing.extraSmall),
+            )
+            if (selectedFolders.isEmpty()) {
+                Text("No hay carpetas seleccionadas.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                selectedFolders.forEach { folder ->
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        shape = MaterialTheme.shapes.medium,
+                        modifier = Modifier.fillMaxWidth().padding(top = spacing.extraSmall),
+                    ) {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(folder.displayName, modifier = Modifier.weight(1f), maxLines = 2)
+                            TextButton(onClick = { pendingFolderRemoval = folder }) { Text("Deseleccionar") }
+                        }
+                    }
+                }
+            }
+            Text(
                 "Tema de color",
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(top = spacing.large, bottom = spacing.extraSmall),
@@ -111,14 +142,93 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(bottom = spacing.small),
             )
-        }
-        items(themeOptions, key = { it.preference.name }) { option ->
-            ThemeOption(
-                option = option,
-                selected = settings.theme == option.preference,
-                onSelect = { viewModel.selectTheme(option.preference) },
+            ThemeSpinner(
+                selectedTheme = settings.theme,
+                onThemeSelected = viewModel::selectTheme,
             )
         }
+    }
+    pendingFolderRemoval?.let { folder ->
+        AlertDialog(
+            onDismissRequest = { pendingFolderRemoval = null },
+            title = { Text("Deseleccionar carpeta") },
+            text = { Text("¿Quieres quitar “${folder.displayName}” de la biblioteca? Sus archivos permanecerán en el dispositivo.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.removeFolder(folder.id)
+                    pendingFolderRemoval = null
+                }) { Text("Deseleccionar") }
+            },
+            dismissButton = { TextButton(onClick = { pendingFolderRemoval = null }) { Text("Cancelar") } },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ThemeSpinner(selectedTheme: ThemePreference, onThemeSelected: (ThemePreference) -> Unit) {
+    var expanded by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    val selected = themeOptions.first { it.preference == selectedTheme }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            shape = MaterialTheme.shapes.large,
+            tonalElevation = 2.dp,
+            modifier = Modifier.fillMaxWidth().menuAnchor().clickable { expanded = true },
+        ) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ThemePalette(selected, Modifier.padding(end = 12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(selected.label, style = MaterialTheme.typography.titleMedium)
+                    Text("Tema actual", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+            }
+        }
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            shape = MaterialTheme.shapes.large,
+        ) {
+            themeOptions.forEach { option ->
+                DropdownMenuItem(
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            ThemePalette(option, Modifier.padding(end = 12.dp))
+                            Text(option.label, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    },
+                    onClick = {
+                        onThemeSelected(option.preference)
+                        expanded = false
+                    },
+                    trailingIcon = {
+                        RadioButton(
+                            selected = option.preference == selectedTheme,
+                            onClick = null,
+                        )
+                    },
+                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThemePalette(option: ThemeOption, modifier: Modifier = Modifier) {
+    val preview = paletteFor(option.previewTheme)
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = modifier) {
+        PaletteDot(preview.background)
+        PaletteDot(preview.card)
+        PaletteDot(preview.accent)
     }
 }
 
@@ -207,9 +317,12 @@ private val themeOptions = listOf(
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
+    private val libraryRootRepository: LibraryRootRepository,
 ) : ViewModel() {
     val settings = settingsRepository.settings
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GlobalSettings())
+    val selectedFolders = libraryRootRepository.observeRoots()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun selectTheme(theme: ThemePreference) {
         viewModelScope.launch { settingsRepository.setTheme(theme) }
@@ -229,5 +342,9 @@ class SettingsViewModel @Inject constructor(
 
     fun setPictureInPicture(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setPictureInPictureEnabled(enabled) }
+    }
+
+    fun removeFolder(id: String) {
+        viewModelScope.launch { libraryRootRepository.removeRoot(id) }
     }
 }

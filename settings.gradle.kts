@@ -10,4 +10,4 @@ dependencyResolutionManagement {
 rootProject.name = "MichisPlayer"
 include(":app", ":domain", ":data", ":playback", ":core:common", ":core:ui")
 include(":feature:library", ":feature:player", ":feature:bookdetails")
-include(":feature:bookmarks", ":feature:settings")
+include(":feature:settings")

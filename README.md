@@ -54,7 +54,6 @@ playback/               ExoPlayer, MediaSession y servicio de reproducción
 feature/library/        Biblioteca, búsqueda, filtros y escaneo
 feature/player/         Mini reproductor y reproductor completo
 feature/bookdetails/    Detalle de cada audiolibro
-feature/bookmarks/      Base para marcadores
 feature/settings/       Preferencias de la aplicación
 ```
 

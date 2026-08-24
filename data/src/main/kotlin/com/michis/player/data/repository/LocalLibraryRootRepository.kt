@@ -1,6 +1,7 @@
 package com.michis.player.data.repository
 
 import com.michis.player.data.local.dao.LibraryRootDao
+import com.michis.player.data.local.dao.AudiobookDao
 import com.michis.player.domain.model.LibraryRoot
 import com.michis.player.domain.repository.LibraryRootRepository
 import kotlinx.coroutines.flow.Flow
@@ -16,6 +17,7 @@ import javax.inject.Inject
 
 class LocalLibraryRootRepository @Inject constructor(
     private val dao: LibraryRootDao,
+    private val audiobookDao: AudiobookDao,
     @param:ApplicationContext private val context: Context,
 ) : LibraryRootRepository {
     override fun observeRoots(): Flow<List<LibraryRoot>> = dao.observeAll().map { roots ->
@@ -31,5 +33,15 @@ class LocalLibraryRootRepository @Inject constructor(
         return root
     }
 
-    override suspend fun removeRoot(id: String) = dao.delete(id)
+    override suspend fun removeRoot(id: String) {
+        val root = dao.findById(id) ?: return
+        audiobookDao.deleteByRoot(id)
+        dao.delete(id)
+        runCatching {
+            context.contentResolver.releasePersistableUriPermission(
+                Uri.parse(root.treeUri),
+                Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            )
+        }
+    }
 }

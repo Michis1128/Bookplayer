@@ -23,7 +23,7 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
-    audiobooks: AudiobookRepository,
+    private val audiobooks: AudiobookRepository,
     roots: LibraryRootRepository,
     private val addLibraryRoot: AddLibraryRootUseCase,
     private val scanLibrary: ScanLibraryUseCase,
@@ -68,7 +68,12 @@ class LibraryViewModel @Inject constructor(
             is LibraryUiEvent.SortChanged -> sort.value = event.sort
             LibraryUiEvent.ToggleViewMode -> viewMode.value = if (viewMode.value == LibraryViewMode.GRID) LibraryViewMode.LIST else LibraryViewMode.GRID
             is LibraryUiEvent.TreeSelected -> startScan { addLibraryRoot(event.uri) }
-            LibraryUiEvent.Rescan -> rootsState.value.firstOrNull()?.let { root -> startScan { scanLibrary(root) } }
+            LibraryUiEvent.Rescan -> if (rootsState.value.isNotEmpty()) startScan {
+                kotlinx.coroutines.flow.flow {
+                    rootsState.value.forEach { root -> scanLibrary(root).collect { emit(it) } }
+                }
+            }
+            is LibraryUiEvent.RemoveFromLibrary -> viewModelScope.launch { audiobooks.removeFromLibrary(event.bookId) }
         }
     }
 

@@ -6,7 +6,9 @@ import android.app.RemoteAction
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.drawable.Icon
+import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.util.Rational
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -14,14 +16,18 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.SideEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.michis.player.core.ui.theme.MichisTheme
 import com.michis.player.domain.repository.GlobalSettings
 import com.michis.player.domain.repository.SettingsRepository
 import com.michis.player.domain.repository.PlaybackController
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -37,17 +43,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        observePictureInPictureState()
         setContent {
             val settings by settingsRepository.settings.collectAsStateWithLifecycle(GlobalSettings())
-            val playback by playbackController.state.collectAsStateWithLifecycle()
-            SideEffect {
-                pipEnabled = settings.pictureInPictureEnabled
-                hasActiveBook = playback.book != null
-                isPlaying = playback.isPlaying
-                skipBackwardMs = settings.skipBackwardSeconds * 1_000L
-                skipForwardMs = settings.skipForwardSeconds * 1_000L
-                updatePictureInPictureParams()
-            }
             MichisTheme(theme = settings.theme) { MichisPlayerApp(pictureInPicture) }
         }
         handlePlaybackAction(intent)
@@ -61,8 +59,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        if (pipEnabled && hasActiveBook && !isInPictureInPictureMode) {
-            enterPictureInPictureMode(buildPictureInPictureParams())
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S && pipEnabled && hasActiveBook && !isInPictureInPictureMode) {
+            val entered = enterPictureInPictureMode(buildPictureInPictureParams())
+            if (!entered) Log.w(TAG, "Android rechazó la entrada manual a Picture-in-Picture")
         }
     }
 
@@ -72,19 +71,40 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun updatePictureInPictureParams() {
-        if (hasActiveBook) setPictureInPictureParams(buildPictureInPictureParams())
+        setPictureInPictureParams(buildPictureInPictureParams())
     }
 
-    private fun buildPictureInPictureParams(): PictureInPictureParams = PictureInPictureParams.Builder()
-        .setAspectRatio(Rational(16, 9))
-        .setActions(
+    private fun buildPictureInPictureParams(): PictureInPictureParams {
+        val builder = PictureInPictureParams.Builder()
+            .setAspectRatio(Rational(16, 9))
+            .setActions(
             listOf(
                 remoteAction(ACTION_BACK, android.R.drawable.ic_media_rew, "Retroceder"),
                 remoteAction(if (isPlaying) ACTION_PAUSE else ACTION_PLAY, if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play, if (isPlaying) "Pausar" else "Reproducir"),
                 remoteAction(ACTION_FORWARD, android.R.drawable.ic_media_ff, "Avanzar"),
             ),
         )
-        .build()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            builder.setAutoEnterEnabled(pipEnabled && hasActiveBook)
+        }
+        return builder.build()
+    }
+
+    private fun observePictureInPictureState() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                combine(settingsRepository.settings, playbackController.state) { settings, playback -> settings to playback }
+                    .collect { (settings, playback) ->
+                        pipEnabled = settings.pictureInPictureEnabled
+                        hasActiveBook = playback.book != null
+                        isPlaying = playback.isPlaying
+                        skipBackwardMs = settings.skipBackwardSeconds * 1_000L
+                        skipForwardMs = settings.skipForwardSeconds * 1_000L
+                        updatePictureInPictureParams()
+                    }
+            }
+        }
+    }
 
     private fun remoteAction(action: String, iconRes: Int, title: String): RemoteAction {
         val intent = Intent(this, MainActivity::class.java).setAction(action)
@@ -103,6 +123,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private companion object {
+        const val TAG = "MichisPlayerPiP"
         const val ACTION_PLAY = "com.michis.player.PIP_PLAY"
         const val ACTION_PAUSE = "com.michis.player.PIP_PAUSE"
         const val ACTION_BACK = "com.michis.player.PIP_BACK"

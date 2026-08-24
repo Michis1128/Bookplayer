@@ -75,10 +75,14 @@ sealed interface PlayerUiEvent {
 }
 
 @Composable
-fun PlayerRoute(bookId: String?, viewModel: PlayerViewModel = hiltViewModel()) {
+fun PlayerRoute(
+    bookId: String?,
+    pictureInPicture: Boolean = false,
+    viewModel: PlayerViewModel = hiltViewModel(),
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     LaunchedEffect(bookId) { if (!bookId.isNullOrBlank()) viewModel.playBook(bookId) }
-    PlayerScreen(state, viewModel::onEvent)
+    PlayerScreen(state, viewModel::onEvent, pictureInPicture)
 }
 
 @Composable
@@ -105,16 +109,26 @@ fun PlayerPanelHandleRoute(
 }
 
 @Composable
-fun PlayerScreen(state: PlayerUiState, onEvent: (PlayerUiEvent) -> Unit) {
+fun PlayerScreen(state: PlayerUiState, onEvent: (PlayerUiEvent) -> Unit, pictureInPicture: Boolean = false) {
     var pendingSeekMs by remember(state.currentFile?.id) { mutableStateOf<Long?>(null) }
     var showIndex by remember(state.currentBook?.id) { mutableStateOf(false) }
     val displayedPositionMs = (pendingSeekMs ?: state.currentPositionMs).coerceIn(0L, state.durationMs.coerceAtLeast(0L))
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        if (maxHeight < 600.dp) {
+        if (pictureInPicture && (maxHeight < 240.dp || maxWidth < 300.dp)) {
+            MinimalPlayerContent(state, displayedPositionMs, { pendingSeekMs = it }, {
+                pendingSeekMs?.let { onEvent(PlayerUiEvent.SeekTo(it)) }
+                pendingSeekMs = null
+            }, onEvent)
+        } else if (pictureInPicture && (maxHeight < 420.dp || maxWidth < 520.dp)) {
             CompactPlayerContent(state, displayedPositionMs, { pendingSeekMs = it }, {
                 pendingSeekMs?.let { onEvent(PlayerUiEvent.SeekTo(it)) }
                 pendingSeekMs = null
-            }, onEvent, { showIndex = true })
+            }, onEvent, { showIndex = true }, showCover = false)
+        } else if (maxHeight < 600.dp) {
+            CompactPlayerContent(state, displayedPositionMs, { pendingSeekMs = it }, {
+                pendingSeekMs?.let { onEvent(PlayerUiEvent.SeekTo(it)) }
+                pendingSeekMs = null
+            }, onEvent, { showIndex = true }, showCover = true)
         } else {
             PortraitPlayerContent(state, displayedPositionMs, { pendingSeekMs = it }, {
                 pendingSeekMs?.let { onEvent(PlayerUiEvent.SeekTo(it)) }
@@ -169,6 +183,7 @@ private fun CompactPlayerContent(
     onSeekFinished: () -> Unit,
     onEvent: (PlayerUiEvent) -> Unit,
     onShowChapters: () -> Unit,
+    showCover: Boolean,
 ) {
     val spacing = LocalMichisSpacing.current
     Column(
@@ -176,12 +191,29 @@ private fun CompactPlayerContent(
         verticalArrangement = Arrangement.Center,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            BookCover(state, Modifier.size(104.dp))
-            BookInformation(state, Modifier.weight(1f).padding(start = spacing.medium))
+            if (showCover) BookCover(state, Modifier.size(104.dp))
+            BookInformation(state, Modifier.weight(1f).padding(start = if (showCover) spacing.medium else 0.dp))
         }
         Timeline(state, displayedPositionMs, onSeekChange, onSeekFinished, Modifier.padding(top = spacing.small))
         PlaybackControls(state, onEvent, onShowChapters, Modifier.padding(top = spacing.extraSmall))
         PlaybackStatus(state, Modifier.padding(top = spacing.small))
+    }
+}
+
+@Composable
+private fun MinimalPlayerContent(
+    state: PlayerUiState,
+    displayedPositionMs: Long,
+    onSeekChange: (Long) -> Unit,
+    onSeekFinished: () -> Unit,
+    onEvent: (PlayerUiEvent) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Timeline(state, displayedPositionMs, onSeekChange, onSeekFinished)
+        PlaybackButtons(state, onEvent)
     }
 }
 
@@ -258,6 +290,25 @@ private fun PlaybackControls(
     onShowChapters: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    Column(modifier) {
+        PlaybackButtons(state, onEvent)
+        if (state.audioFiles.isNotEmpty()) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                androidx.compose.material3.TextButton(onClick = onShowChapters) {
+                    Icon(Icons.AutoMirrored.Rounded.FormatListBulleted, contentDescription = null)
+                    Text("Índice", modifier = Modifier.padding(start = 6.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlaybackButtons(
+    state: PlayerUiState,
+    onEvent: (PlayerUiEvent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Row(
         modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceEvenly,
@@ -279,14 +330,6 @@ private fun PlaybackControls(
         }
         FilledIconButton(onClick = { onEvent(PlayerUiEvent.SkipForward) }, enabled = state.currentFile != null) {
             Icon(Icons.Rounded.FastForward, contentDescription = "Avanzar ${state.skipForwardSeconds} segundos")
-        }
-    }
-    if (state.audioFiles.isNotEmpty()) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-            androidx.compose.material3.TextButton(onClick = onShowChapters) {
-                Icon(Icons.AutoMirrored.Rounded.FormatListBulleted, contentDescription = null)
-                Text("Índice", modifier = Modifier.padding(start = 6.dp))
-            }
         }
     }
 }

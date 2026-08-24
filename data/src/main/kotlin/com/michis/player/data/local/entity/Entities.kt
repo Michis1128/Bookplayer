@@ -76,20 +76,6 @@ data class PlaybackProgressEntity(
 )
 
 @Entity(
-    tableName = "bookmarks",
-    foreignKeys = [ForeignKey(entity = AudiobookEntity::class, parentColumns = ["id"], childColumns = ["bookId"], onDelete = ForeignKey.CASCADE)],
-    indices = [Index("bookId"), Index("audioFileId")],
-)
-data class BookmarkEntity(
-    @PrimaryKey val id: String,
-    val bookId: String,
-    val audioFileId: String?,
-    val timestampMs: Long,
-    val note: String,
-    val createdAt: Long,
-)
-
-@Entity(
     tableName = "book_playback_settings",
     foreignKeys = [ForeignKey(entity = AudiobookEntity::class, parentColumns = ["id"], childColumns = ["bookId"], onDelete = ForeignKey.CASCADE)],
 )

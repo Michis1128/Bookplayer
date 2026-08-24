@@ -164,7 +164,15 @@ private fun LibraryHeader(state: LibraryUiState, onEvent: (LibraryUiEvent) -> Un
     Column(Modifier.padding(spacing.medium), verticalArrangement = Arrangement.spacedBy(spacing.small)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("Biblioteca", style = MaterialTheme.typography.headlineMedium)
-            Button(onClick = onSelectLibrary) { Text("Añadir carpeta") }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(
+                    onClick = { onEvent(LibraryUiEvent.Rescan) },
+                    enabled = state.hasLibraryRoot && state.scan !is ScanUiState.Scanning && state.scan != ScanUiState.Discovering,
+                ) {
+                    Text("Actualizar")
+                }
+                Button(onClick = onSelectLibrary) { Text("Añadir carpeta") }
+            }
         }
         OutlinedTextField(
             value = state.query,

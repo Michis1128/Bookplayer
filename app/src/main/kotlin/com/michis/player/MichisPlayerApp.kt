@@ -24,7 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Book
-import androidx.compose.material.icons.rounded.Bookmark
+import androidx.compose.material.icons.rounded.PlayCircle
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
@@ -44,7 +44,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.michis.player.feature.bookmarks.BookmarksScreen
 import com.michis.player.feature.library.LibraryRoute
 import com.michis.player.feature.player.MiniPlayerRoute
 import com.michis.player.feature.player.PlayerPanelHandleRoute
@@ -52,7 +51,6 @@ import com.michis.player.feature.player.PlayerRoute
 import com.michis.player.feature.settings.SettingsScreen
 
 private const val LIBRARY_ROUTE = "library"
-private const val BOOKMARKS_ROUTE = "bookmarks"
 private const val SETTINGS_ROUTE = "settings"
 private const val PLAYER_ROUTE = "player"
 private const val PLAYER_BOOK_ROUTE = "player/{bookId}"
@@ -66,7 +64,7 @@ private data class TopLevelDestination(
 @Composable
 fun MichisPlayerApp(pictureInPicture: Boolean = false) {
     if (pictureInPicture) {
-        Surface(Modifier.fillMaxSize()) { PlayerRoute(bookId = null) }
+        Surface(Modifier.fillMaxSize()) { PlayerRoute(bookId = null, pictureInPicture = true) }
         return
     }
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -79,7 +77,7 @@ private fun PlayerScaffold(isLandscape: Boolean) {
     val navController = rememberNavController()
     val destinations = listOf(
         TopLevelDestination("Biblioteca", LIBRARY_ROUTE, Icons.Rounded.Book),
-        TopLevelDestination("Marcadores", BOOKMARKS_ROUTE, Icons.Rounded.Bookmark),
+        TopLevelDestination("Reproductor", PLAYER_ROUTE, Icons.Rounded.PlayCircle),
         TopLevelDestination("Configuración", SETTINGS_ROUTE, Icons.Rounded.Settings),
     )
     val entry by navController.currentBackStackEntryAsState()
@@ -193,7 +191,6 @@ private fun PlayerNavigation(
         composable(LIBRARY_ROUTE) {
             LibraryRoute(onOpenBook = onBookSelected)
         }
-        composable(BOOKMARKS_ROUTE) { BookmarksScreen() }
         composable(SETTINGS_ROUTE) { SettingsScreen() }
         composable(PLAYER_ROUTE) { PlayerRoute(bookId = null) }
         composable(

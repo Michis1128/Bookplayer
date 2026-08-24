@@ -11,6 +11,7 @@ import com.michis.player.data.local.dao.AudiobookDao
 import com.michis.player.data.local.dao.AudioFileDao
 import com.michis.player.data.local.MIGRATION_1_2
 import com.michis.player.data.local.MIGRATION_2_3
+import com.michis.player.data.local.MIGRATION_3_4
 import com.michis.player.data.local.dao.LibraryRootDao
 import com.michis.player.data.local.dao.PlaybackProgressDao
 import com.michis.player.data.repository.DataStoreSettingsRepository
@@ -47,7 +48,7 @@ abstract class RepositoryModule {
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
     @Provides @Singleton fun provideDatabase(@ApplicationContext context: Context): MichisPlayerDatabase =
-        Room.databaseBuilder(context, MichisPlayerDatabase::class.java, "michis-player.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
+        Room.databaseBuilder(context, MichisPlayerDatabase::class.java, "michis-player.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build()
 
     @Provides fun provideAudiobookDao(database: MichisPlayerDatabase): AudiobookDao = database.audiobookDao()
     @Provides fun provideLibraryRootDao(database: MichisPlayerDatabase): LibraryRootDao = database.libraryRootDao()

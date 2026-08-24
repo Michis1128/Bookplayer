@@ -1,5 +1,6 @@
 package com.michis.player.playback.service
 
+import android.content.Intent
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes as Media3AudioAttributes
 import androidx.media3.common.C
@@ -64,6 +65,17 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = mediaSession
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        val currentItem = player.currentMediaItem
+        val currentPosition = player.currentPosition.coerceAtLeast(0L)
+        val completed = player.playbackState == Player.STATE_ENDED && !player.hasNextMediaItem()
+        player.pause()
+        runBlocking(Dispatchers.IO) { persistPosition(currentItem, currentPosition, completed) }
+        player.stop()
+        stopSelf()
+        super.onTaskRemoved(rootIntent)
+    }
 
     override fun onDestroy() {
         progressJob?.cancel()
